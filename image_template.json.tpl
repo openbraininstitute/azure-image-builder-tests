@@ -28,34 +28,10 @@
         },
         "customize": [
             {
-                "type": "PowerShell",
-                "name": "CreateBuildPath",
-                "runElevated": false,
-                "scriptUri": "https://raw.githubusercontent.com/danielsollondon/azvmimagebuilder/master/testPsScript.ps1"
-            },
-            {
-                "type": "File",
-                "name": "downloadBuildArtifacts",
-                "sourceUri": "https://raw.githubusercontent.com/danielsollondon/azvmimagebuilder/master/quickquickstarts/exampleArtifacts/buildArtifacts/index.html",
-                "destination": "c:\\buildArtifacts\\index.html"
-            },
-            {
-                "type": "PowerShell",
-                "name": "settingUpMgmtAgtPath",
-                "runElevated": false,
-                "inline": [
-                    "mkdir c:\\buildActions",
-                    "echo Azure-Image-Builder-Was-Here  > c:\\buildActions\\buildActionsOutput.txt"
-                ]
-            },
-            {
-                "type": "WindowsUpdate",
-                "searchCriteria": "IsInstalled=0",
-                "filters": [
-                    "exclude:$_.Title -like '*Preview*'",
-                    "include:$true"
-                ],
-                "updateLimit": 20
+                "type": "Shell",
+                "name": "InstallNeurodamus",
+                "runElevated": true,
+                "scriptUri": "https://raw.githubusercontent.com/openbraininstitute/azure-image-builder-tests/refs/heads/neurodamus/install_neurodamus.sh?token=GHSAT0AAAAAAC7KQY4VZJOBTDC5IG4BR7EG2BHICAQ"
             }
         ],
         "distribute": [
@@ -66,7 +42,7 @@
                 "runOutputName": "<runOutputName>",
                 "artifactTags": {
                     "source": "azVmImageBuilder",
-                    "baseosimg": "windows2022"
+                    "baseosimg": "ubuntu-hpc"
                 }
             }
         ]
