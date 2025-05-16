@@ -14,7 +14,7 @@ az group create --name=${rg} --location=${location}
 # create identity
 az identity create -g ${rg} -n ${identity_name}
 # Get the identity ID
-export image_builder_id=$(az identity show -g ${rg} -n ${erik-image-builder-id} --query clientId -o tsv)
+export image_builder_id=$(az identity show -g ${rg} -n ${identity_name} --query clientId -o tsv)
 
 # Get the user identity URI that's needed for the template
 export image_builder_id=/subscriptions/${subscription}/resourcegroups/${rg}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/${identity_name}
