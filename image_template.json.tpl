@@ -30,8 +30,7 @@
             {
                 "type": "Shell",
                 "name": "InstallNeurodamus",
-                "runElevated": true,
-                "scriptUri": "https://raw.githubusercontent.com/openbraininstitute/azure-image-builder-tests/refs/heads/neurodamus/install_neurodamus.sh?token=GHSAT0AAAAAAC7KQY4VZJOBTDC5IG4BR7EG2BHICAQ"
+                "scriptUri": "https://raw.githubusercontent.com/openbraininstitute/azure-image-builder-tests/refs/heads/neurodamus/install_neurodamus.sh"
             }
         ],
         "distribute": [
