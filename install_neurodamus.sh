@@ -11,9 +11,9 @@ export USR_VENV=$WORKDIR/venv
 set -eux
 
 echo "Install needed libs"
-apt-get --yes -qq update
-apt-get --yes -qq upgrade
-apt-get --yes -qq install \
+apt-get --yes update
+apt-get --yes upgrade
+apt-get --yes install \
                       g++ \
                       gcc \
                       python3.10 \
