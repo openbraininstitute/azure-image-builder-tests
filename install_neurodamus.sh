@@ -8,11 +8,16 @@ export WORKDIR=/opt/software
 export INSTALL_DIR=/opt/software/install
 export USR_VENV=$WORKDIR/venv
 
-set -eux
+set -ux
+
+echo "Debugging"
+ping -c 2 1.1.1.1
+
+set -e
 
 echo "Install needed libs"
 apt-get --yes update
-apt-get --yes upgrade
+# apt-get --yes upgrade
 apt-get --yes install \
                       g++ \
                       gcc \
