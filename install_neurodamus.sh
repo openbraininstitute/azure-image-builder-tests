@@ -55,6 +55,7 @@ export SONATAREPORT_DIR="$INSTALL_DIR"
 echo "Install neuron"
 source $USR_VENV/bin/activate
 cd $WORKDIR
+set +u
 if [[ ! -z $NEURON_COMMIT_ID ]]
 then
    git clone https://github.com/neuronsimulator/nrn.git
@@ -64,6 +65,7 @@ then
 else
     git clone https://github.com/neuronsimulator/nrn.git --depth 1 -b $NEURON_TAG
 fi
+set -u
 cmake -B nrn_build -S nrn -DPYTHON_EXECUTABLE=$(which python) -DCMAKE_INSTALL_PREFIX=$INSTALL_DIR -DNRN_ENABLE_MPI=ON -DNRN_ENABLE_INTERVIEWS=OFF -DNRN_ENABLE_RX3D=OFF -DNRN_ENABLE_CORENEURON=ON -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ -DCORENRN_ENABLE_REPORTING=ON -DCMAKE_PREFIX_PATH=$SONATAREPORT_DIR
 cmake --build nrn_build -- -j 2
 cmake --install nrn_build
