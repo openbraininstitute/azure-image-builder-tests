@@ -86,7 +86,9 @@ export HOC_LIBRARY_PATH="$WORKDIR/neurodamus/neurodamus/data/hoc"
 export NEURODAMUS_PYTHON="$WORKDIR/neurodamus/neurodamus/data"
 export NEURODAMUS_MODS_DIR="$WORKDIR/neurodamus/neurodamus/data/mod"
 export PATH="$INSTALL_DIR/bin:$USR_VENV/bin:$PATH"
+set +u
 export PYTHONPATH="$INSTALL_DIR/lib/python:$PYTHONPATH"
+set -u
 export NEURODAMUS_DOCKER_DIR=$WORKDIR/neurodamus/docker
 
 echo "Copy common bluebrain hoc and mod files from neurodamus-models, required for instantiating neurodamus"
