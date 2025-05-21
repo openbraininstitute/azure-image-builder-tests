@@ -15,9 +15,10 @@ ping -c 2 1.1.1.1
 
 set -e
 
+export DEBIAN_FRONTEND=noninteractive
 echo "Install needed libs"
 apt-get --yes update
-# apt-get --yes upgrade
+apt-get --yes upgrade
 apt-get --yes install \
                       g++ \
                       gcc \
