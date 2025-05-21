@@ -35,6 +35,8 @@ sed -i -e "s%Azure Image Builder Service Image Creation Role%${image_role_def_na
 # Create role definitions
 az role definition create --role-definition ./image_creation_role.json
 
+sleep 5  # sigh
+
 # Grant a role definition to the user-assigned identity
 az role assignment create --assignee ${image_builder_id} --role "${image_role_def_name}" --scope /subscriptions/${subscription}/resourceGroups/${rg}
 
@@ -47,3 +49,5 @@ sed -i -e "s%<runOutputName>%${run_output_name}%g" image_template.json
 sed -i -e "s%<imgBuilderId>%${template_image_builder_id}%g" image_template.json
 
 az resource create --resource-group ${rg} --properties '@image_template.json' --is-full-object --resource-type Microsoft.VirtualMachineImages/imageTemplates --name erik-neurodamus
+
+az image builder run --name ${image_name} --no-wait --subscription ${subscription} --resource-group ${rg}
