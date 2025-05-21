@@ -105,9 +105,9 @@ sed -i "s/ARCH=\"x86_64\"/ARCH=\"$ARCH\"/g" $NEURODAMUS_DOCKER_DIR/build_neuroda
 cd $INSTALL_DIR
 $NEURODAMUS_DOCKER_DIR/build_neurodamus.sh $NEURODAMUS_MODS_DIR
 ./$ARCH/special -python -c "from neuron import h; h.quit()"
-./$ARCH/special -python -c "from neurodamus.core import NeuronWrapper as Nd; Nd.init()"
+./$ARCH/special -python -c "from neurodamus.core import NeuronWrapper as Nd; Nd.init(); exit()"
 # rm -rf $ARCH/
 
 echo "#!/bin/bash" > "$WORKDIR/env.sh"
 echo "export PATH=$INSTALL_DIR/$ARCH:\$PATH" >> "$WORKDIR/env.sh"
-echo"export CORENEURONLIB=$INSTALL_DIR/$ARCH/libcorenrnmech.so" >> "$WORKDIR/env.sh"
+echo "export CORENEURONLIB=$INSTALL_DIR/$ARCH/libcorenrnmech.so" >> "$WORKDIR/env.sh"
