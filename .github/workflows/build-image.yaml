@@ -19,6 +19,18 @@ on:
         type: boolean
         required: true
         default: false
+env:
+  GALLERY_NAME: ${{ vars.GALLERY_NAME }}
+  IDENTITY_NAME: ${{ vars.IDENTITY_NAME }}
+  IMAGE_NAME: ${{ vars.IMAGE_NAME }}
+  IMAGE_ROLE_DEF_NAME: ${{ vars.IMAGE_ROLE_DEF_NAME }}
+  IMAGE_VERSION: ${{ vars.IMAGE_VERSION }}
+  LOCATION: ${{ vars.LOCATION }}
+  RESOURCE_GROUP_NAME: ${{ vars.RESOURCE_GROUP_NAME }}
+  RUN_OUTPUT_NAME: ${{ vars.RUN_OUTPUT_NAME }}
+  SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  TEMPLATE_IMAGE_BUILDER_ID: /subscriptions/${AZURE_SUBSCRIPTION_ID}/resourcegroups/${{ vars.RESOURCE_GROUP_NAME }}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/${{
+    vars.IDENTITY_NAME }}
 jobs:
   ensure-environment:
     runs-on: ubuntu-latest
