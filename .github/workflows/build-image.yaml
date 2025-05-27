@@ -1,0 +1,139 @@
+---
+name: Build new machine image
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Which environment to build the image in
+        type: choice
+        options: [SandboxErik]
+        required: true
+        default: SandboxErik
+      recreate_template:
+        description: Recreate the template  if it already exists
+        type: boolean
+        required: true
+        default: false
+      build_image_from_template:
+        description: Build a new image from the template
+        type: boolean
+        required: true
+        default: false
+jobs:
+  ensure-environment:
+    runs-on: ubuntu-latest
+    steps:
+      - name: clone repo
+        uses: actions/checkout@v4
+      - name: install azure-cli
+        run: |-
+          apt-get update
+          apt-get install -y azure-cli
+      - name: configure Azure credentials
+        uses: azure/login@v1
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: ensure resource group exists
+        run: |-
+          EXISTING_RESOURCE_GROUPS=$(az group list | jq -r '.[].name')
+          if [[ "${EXISTING_RESOURCE_GROUPS}" == *"${RESOURCE_GROUP_NAME}"* ]]
+          then
+              echo "Resource group ${RESOURCE_GROUP_NAME} already exists - skipping create"
+          else
+              echo "Create resource group ${RESOURCE_GROUP_NAME}"
+              az group create --name=${RESOURCE_GROUP_NAME} --location=${LOCATION}
+          fi
+      - name: ensure identity exists
+        run: |-
+          EXISTING_IDENTITIES=$(az identity list | jq '.[].name')
+          if [[ "${EXISTING_IDENTITIES}" == *"${IDENTITY_NAME}"* ]]
+          then
+              echo "Identity ${IDENTITY_NAME} already exists - skipping create"
+          else
+              echo "Create managed identity"
+              az identity create -g ${RESOURCE_GROUP_NAME} -n ${IDENTITY_NAME}
+          fi
+          export image_builder_id=$(az identity show -g ${RESOURCE_GROUP_NAME} -n ${IDENTITY_NAME} --query clientId -o tsv)
+          echo "Image builder ID is ${image_builder_id}"
+          echo "IMAGE_BUILDER_ID=${image_builder_id}" >> $GITHUB_OUTPUT
+      - name: create and assign role definition
+        id: role-definition
+        run: |-
+          EXISTING_ROLE_DEFINITION=$(az role definition list --custom-role-only --name "${IMAGE_ROLE_DEF_NAME}" | jq -r '.[].roleName')
+          if [[ "${EXISTING_ROLE_DEFINITION}" == ${IMAGE_ROLE_DEF_NAME} ]]
+          then
+            echo "${IMAGE_ROLE_DEF_NAME} already exists - skipping create"
+          else
+            cp image_creation_role.json.tpl image_creation_role.json
+            sed -i -e "s%<subscriptionID>%${SUBSCRIPTION_ID}%g" image_creation_role.json
+            sed -i -e "s%<rgName>%${RESOURCE_GROUP_NAME}%g" image_creation_role.json
+            sed -i -e "s%Azure Image Builder Service Image Creation Role%${IMAGE_ROLE_DEF_NAME}%g" image_creation_role.json
+            az role definition create --role-definition ./image_creation_role.json
+            sleep 5  # it may show up in `az role definition list` immediately, but sometimes the assignment fails because the role "does not exist" yet
+            az role assignment create --assignee ${{ steps.role-definition.IMAGE_BUILDER_ID }} --role "${IMAGE_ROLE_DEF_NAME}" --scope /subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP_NAME}
+          fi
+      - name: create image template
+        run: |-
+          EXISTING_TEMPLATES=$(az resource list --name erik-neurodamus --resource-type 'microsoft.virtualmachineimages/imagetemplates' | jq '.[].name')
+          create=true
+          if [[ "${EXISTING_TEMPLATES}" == *"${IMAGE_NAME}-template"* ]]
+          then
+            if [[ ${{ inputs.recreate_template }} == true ]]
+            then
+              echo "Recreating template"
+              az resource delete --name ${IMAGE_NAME}-template --tesource-type 'microsoft.virtualmachineimages/imagetemplates'
+            else
+              echo "Template already exists - skipping creation"
+              create=false
+            fi
+          fi
+          if [[ ${create} == true ]]
+          then
+            cp image_template.json.tpl image_template.json
+            sed -i -e "s%<subscriptionID>%${SUBSCRIPTION_ID}%g" image_template.json
+            sed -i -e "s%<rgName>%${RESOURCE_GROUP_NAME}%g" image_template.json
+            sed -i -e "s%<region>%${LOCATION}%g" image_template.json
+            sed -i -e "s%<imageName>%${IMAGE_NAME}%g" image_template.json
+            sed -i -e "s%<runOutputName>%${RUN_OUTPUT_NAME}%g" image_template.json
+            sed -i -e "s%<imgBuilderId>%${TEMPLATE_IMAGE_BUILDER_ID}%g" image_template.json
+            az resource create --resource-group ${RESOURCE_GROUP_NAME} --properties '@image_template.json' --is-full-object --resource-type Microsoft.VirtualMachineImages/imageTemplates --name ${IMAGE_NAME}-template
+          fi
+      - name: build image from template
+        run: |-
+          if [[ ${{ inputs.build_image_from_template }} == true ]]
+          then
+            echo "Building image from template"
+            az image builder run --name ${IMAGE_NAME}-template --subscription ${SUBSCRIPTION_ID} --resource-group ${RESOURCE_GROUP_NAME}
+          fi
+      - name: ensure image gallery exists
+        run: |-
+          EXISTING_GALLERIES=$(az sig list --resource-group ${RESOURCE_GROUP_NAME} | jq -r '.[].name')
+          if [[ "${EXISTING_GALLERIES}" == *"${GALLERY_NAME}"* ]]
+          then
+              echo "Image gallery ${GALLERY_NAME} already exists - skipping creation"
+          else
+              echo "Creating image gallery ${GALLERY_NAME}"
+              az sig create  --gallery-name ${GALLERY_NAME} --resource-group  ${RESOURCE_GROUP_NAME} --location ${LOCATION}
+          fi
+      - name: ensure image definition exists
+        run: |-
+          EXISTING_IMAGE_DEFINITIONS=$(az sig image-definition list --gallery-name ${GALLERY_NAME} --resource-group ${RESOURCE_GROUP_NAME} | jq '.[].name')
+          if [[ "${EXISTING_IMAGE_DEFINITIONS}" == *"\"${IMAGE_NAME}\""* ]]
+          then
+              echo "Image definition ${IMAGE_NAME} already exists - skipping creation"
+          else
+              echo "Creating image definition ${IMAGE_NAME}"
+              az sig image-definition create --gallery-image-definition ${IMAGE_NAME}-template --gallery-name ${GALLERY_NAME} --offer ${IMAGE_NAME} --os-type Linux --publisher openbraininstitute --resource-group ${RESOURCE_GROUP_NAME} --sku ${IMAGE_VERSION} --architecture x64 --location ${LOCATION} --plan-name ${IMAGE_NAME} --plan-product ${IMAGE_VERSION} --plan-publisher openbraininstitute
+              provisioningState=Provisioning
+              while [[ "${provisioningState}" != "Succeeded" ]]
+              do
+                  echo "Image definition state ${provisioningState} not ready yet... waiting"
+                  sleep 5
+                  provisioningState=$(az sig image-definition list --gallery-name ${GALLERY_NAME} --resource-group ${RESOURCE_GROUP_NAME} | jq -r ".[] | select(.name == \"${IMAGE_NAME}\") | .provisioningState")
+              done
+          fi
+      - name: create image version
+        run: |-
+          az sig image-version create --gallery-image-definition ${IMAGE_NAME}-template --gallery-image-version ${IMAGE_VERSION} --gallery-name ${GALLERY_NAME} --resource-group ${RESOURCE_GROUP_NAME} --location ${LOCATION} --managed-image ${IMAGE_NAME}
