@@ -34,6 +34,7 @@ env:
 jobs:
   ensure-environment:
     runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
     steps:
       - name: clone repo
         uses: actions/checkout@v4
