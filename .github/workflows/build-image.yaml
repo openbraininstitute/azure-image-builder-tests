@@ -64,7 +64,6 @@ jobs:
               az group create --name=${RESOURCE_GROUP_NAME} --location=${LOCATION}
           fi
       - name: ensure identity exists
-        id: identity
         run: |-
           set -x
           EXISTING_IDENTITIES=$(az identity list | jq '.[].name')
@@ -75,9 +74,6 @@ jobs:
               echo "Create managed identity"
               az identity create -g ${RESOURCE_GROUP_NAME} -n ${IDENTITY_NAME}
           fi
-          export image_builder_id=$(az identity show -g ${RESOURCE_GROUP_NAME} -n ${IDENTITY_NAME} --query clientId -o tsv)
-          echo "Image builder ID is ${image_builder_id}"
-          echo "IMAGE_BUILDER_ID=${image_builder_id}" >> $GITHUB_OUTPUT
       - name: create and assign role definition
         run: |-
           set -x
@@ -93,7 +89,7 @@ jobs:
             cat image_creation_role.json
             az role definition create --role-definition ./image_creation_role.json
             sleep 5  # it may show up in `az role definition list` immediately, but sometimes the assignment fails because the role "does not exist" yet
-            az role assignment create --assignee ${{ steps.identity.outputs.IMAGE_BUILDER_ID }} --role "${IMAGE_ROLE_DEF_NAME}" --scope /subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP_NAME}
+            az role assignment create --assignee ${TEMPLATE_IMAGE_BUILDER_ID} --role "${IMAGE_ROLE_DEF_NAME}" --scope /subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP_NAME}
           fi
       - name: create image template
         run: |-
