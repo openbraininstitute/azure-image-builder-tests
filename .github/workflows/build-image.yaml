@@ -89,7 +89,8 @@ jobs:
             cat image_creation_role.json
             az role definition create --role-definition ./image_creation_role.json
             sleep 5  # it may show up in `az role definition list` immediately, but sometimes the assignment fails because the role "does not exist" yet
-            az role assignment create --assignee ${TEMPLATE_IMAGE_BUILDER_ID} --role "${IMAGE_ROLE_DEF_NAME}" --scope /subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP_NAME}
+            identity_id=$(az identity list --resource-group auto-machine-images-rg | jq -r ".[] | select(.name == \"${IDENTITY_NAME}\") | .principalId")
+            az role assignment create --assignee ${identity_id} --role "${IMAGE_ROLE_DEF_NAME}" --scope /subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP_NAME}
           fi
       - name: create image template
         run: |-
