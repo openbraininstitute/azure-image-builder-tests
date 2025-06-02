@@ -156,7 +156,7 @@ jobs:
               echo "Image definition ${IMAGE_NAME} already exists - skipping creation"
           else
               echo "Creating image definition ${IMAGE_NAME}"
-              az sig image-definition create --gallery-image-definition ${IMAGE_NAME} --gallery-name ${GALLERY_NAME} --offer ${IMAGE_NAME} --os-type Linux --publisher openbraininstitute --resource-group ${RESOURCE_GROUP_NAME} --sku ${IMAGE_VERSION} --architecture x64 --location ${LOCATION} --plan-name ${IMAGE_NAME} --plan-product ${IMAGE_VERSION} --plan-publisher openbraininstitute
+              az sig image-definition create --gallery-image-definition ${IMAGE_NAME} --gallery-name ${GALLERY_NAME} --offer ${IMAGE_NAME} --os-type Linux --publisher openbraininstitute --resource-group ${RESOURCE_GROUP_NAME} --sku ${IMAGE_VERSION} --architecture x64 --location ${LOCATION}
               provisioningState=Provisioning
               while [[ "${provisioningState}" != "Succeeded" ]]
               do
