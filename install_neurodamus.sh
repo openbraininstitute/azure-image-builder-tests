@@ -38,7 +38,7 @@ echo "Create venv and install some basic packages"
 python3 -m venv $USR_VENV
 source $USR_VENV/bin/activate
 pip install -U pip setuptools
-pip install -U cython pytest sympy jinja2 pyyaml numpy wheel pkgconfig
+pip install -U cython pytest sympy jinja2 pyyaml numpy wheel pkgconfig morphio
 
 echo "Install libsonata"
 CC=mpicc CXX=mpic++ pip install git+https://github.com/openbraininstitute/libsonata@$LIBSONATA_TAG
@@ -67,13 +67,13 @@ else
     git clone https://github.com/neuronsimulator/nrn.git --depth 1 -b $NEURON_TAG
 fi
 set -u
-cmake -B nrn_build -S nrn -DPYTHON_EXECUTABLE=$(which python) -DCMAKE_INSTALL_PREFIX=$INSTALL_DIR -DNRN_ENABLE_MPI=ON -DNRN_ENABLE_INTERVIEWS=OFF -DNRN_ENABLE_RX3D=OFF -DNRN_ENABLE_CORENEURON=ON -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ -DCORENRN_ENABLE_REPORTING=ON -DCMAKE_PREFIX_PATH=$SONATAREPORT_DIR
+cmake -B nrn_build -S nrn -DCMAKE_BUILD_TYPE=RelWithDebInfo -DPYTHON_EXECUTABLE=$(which python) -DCMAKE_INSTALL_PREFIX=$INSTALL_DIR -DNRN_ENABLE_MPI=ON -DNRN_ENABLE_INTERVIEWS=OFF -DNRN_ENABLE_RX3D=OFF -DNRN_ENABLE_CORENEURON=ON -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ -DCORENRN_ENABLE_REPORTING=ON -DCMAKE_PREFIX_PATH=$SONATAREPORT_DIR
 cmake --build nrn_build -- -j 2
 cmake --install nrn_build
 rm -rf nrn nrn_build
 
 echo "Build h5py with the local hdf5"
-pip install mpi4py
+pip install mpi4py --no-binary=mpi4py
 ARCH=$(uname -m) CC="mpicc" HDF5_MPI="ON" HDF5_INCLUDEDIR=/usr/include/hdf5/mpich HDF5_LIBDIR=/usr/lib/$ARCH-linux-gnu/hdf5/mpich \
     pip install --no-cache-dir --no-binary=h5py h5py --no-build-isolation
 
@@ -97,6 +97,22 @@ wget -q https://raw.githubusercontent.com/openbraininstitute/neurodamus-models/r
 wget -q https://raw.githubusercontent.com/openbraininstitute/neurodamus-models/refs/heads/main/common/hoc/GABAABHelper.hoc -O $HOC_LIBRARY_PATH/GABAABHelper.hoc
 wget -q https://raw.githubusercontent.com/openbraininstitute/neurodamus-models/refs/heads/main/common/mod/ProbAMPANMDA_EMS.mod -O $NEURODAMUS_MODS_DIR/ProbAMPANMDA_EMS.mod
 wget -q https://raw.githubusercontent.com/openbraininstitute/neurodamus-models/refs/heads/main/common/mod/ProbGABAAB_EMS.mod -O $NEURODAMUS_MODS_DIR/ProbGABAAB_EMS.mod
+
+echo "Copy neocortex mod files"
+wget -q https://raw.githubusercontent.com/openbraininstitute/neurodamus-models/refs/heads/main/neocortex/mod/v6/CaDynamics_DC0.mod -O $NEURODAMUS_MODS_DIR/CaDynamics_DC0.mod
+wget -q https://raw.githubusercontent.com/openbraininstitute/neurodamus-models/refs/heads/main/neocortex/mod/v6/Ca_HVA2.mod -O $NEURODAMUS_MODS_DIR/Ca_HVA2.mod
+wget -q https://raw.githubusercontent.com/openbraininstitute/neurodamus-models/refs/heads/main/neocortex/mod/common/Ca_LVAst.mod -O $NEURODAMUS_MODS_DIR/Ca_LVAst.mod
+wget -q https://raw.githubusercontent.com/openbraininstitute/neurodamus-models/refs/heads/main/neocortex/mod/common/Ih.mod -O $NEURODAMUS_MODS_DIR/Ih.mod
+wget -q https://raw.githubusercontent.com/openbraininstitute/neurodamus-models/refs/heads/main/neocortex/mod/common/K_Pst.mod -O $NEURODAMUS_MODS_DIR/K_Pst.mod
+wget -q https://raw.githubusercontent.com/openbraininstitute/neurodamus-models/refs/heads/main/neocortex/mod/common/K_Tst.mod -O $NEURODAMUS_MODS_DIR/K_Tst.mod
+wget -q https://raw.githubusercontent.com/openbraininstitute/neurodamus-models/refs/heads/main/neocortex/mod/common/KdShu2007.mod -O $NEURODAMUS_MODS_DIR/KdShu2007.mod
+wget -q https://raw.githubusercontent.com/openbraininstitute/neurodamus-models/refs/heads/main/neocortex/mod/v6/NaTg.mod -O $NEURODAMUS_MODS_DIR/NaTg.mod
+wget -q https://raw.githubusercontent.com/openbraininstitute/neurodamus-models/refs/heads/main/neocortex/mod/common/Nap_Et2.mod -O $NEURODAMUS_MODS_DIR/Nap_Et2.mod
+wget -q https://raw.githubusercontent.com/openbraininstitute/neurodamus-models/refs/heads/main/neocortex/mod/common/SK_E2.mod -O $NEURODAMUS_MODS_DIR/SK_E2.mod
+wget -q https://raw.githubusercontent.com/openbraininstitute/neurodamus-models/refs/heads/main/neocortex/mod/common/SKv3_1.mod -O $NEURODAMUS_MODS_DIR/SKv3_1.mod
+wget -q https://raw.githubusercontent.com/openbraininstitute/neurodamus-models/refs/heads/main/neocortex/mod/v6/StochKv3.mod -O $NEURODAMUS_MODS_DIR/StochKv3.mod
+wget -q https://raw.githubusercontent.com/openbraininstitute/neurodamus-models/refs/heads/main/common/mod/TTXDynamicsSwitch.mod -O $NEURODAMUS_MODS_DIR/TTXDynamicsSwitch.mod
+wget -q https://raw.githubusercontent.com/openbraininstitute/neurodamus-models/refs/heads/main/common/mod/ConductanceSource.mod -O $NEURODAMUS_MODS_DIR/ConductanceSource.mod
 
 echo "Edit module building script and test build"
 chmod +x $NEURODAMUS_DOCKER_DIR/build_neurodamus.sh
