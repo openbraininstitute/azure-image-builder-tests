@@ -19,12 +19,22 @@ on:
         type: boolean
         required: true
         default: true
+      image_name:
+        description: Name of the image to build
+        default: auto-neurodamus
+        required: true
+        type: string
+      image_version:
+        description: Version of the image to build
+        default: 3.8.1
+        required: true
+        type: string
 env:
   GALLERY_NAME: ${{ vars.GALLERY_NAME }}
   IDENTITY_NAME: ${{ vars.IDENTITY_NAME }}
-  IMAGE_NAME: ${{ vars.IMAGE_NAME }}
+  IMAGE_NAME: ${{ inputs.image_name }}
   IMAGE_ROLE_DEF_NAME: ${{ vars.IMAGE_ROLE_DEF_NAME }}
-  IMAGE_VERSION: ${{ vars.IMAGE_VERSION }}
+  IMAGE_VERSION: ${{ inputs.image_version }}
   LOCATION: ${{ vars.LOCATION }}
   RESOURCE_GROUP_NAME: ${{ vars.RESOURCE_GROUP_NAME }}
   RUN_OUTPUT_NAME: ${{ vars.RUN_OUTPUT_NAME }}
