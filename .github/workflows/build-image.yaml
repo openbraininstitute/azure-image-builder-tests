@@ -178,4 +178,4 @@ jobs:
       - name: create image version
         run: |-
           set -x
-          az sig image-version create --gallery-image-definition ${IMAGE_NAME} --gallery-image-version ${IMAGE_VERSION} --gallery-name ${GALLERY_NAME} --resource-group ${RESOURCE_GROUP_NAME} --location ${LOCATION} --managed-image ${IMAGE_NAME} --target-regions eastus2=1 westeurope=1
+          az sig image-version create --gallery-image-definition ${IMAGE_NAME} --gallery-image-version ${IMAGE_VERSION} --gallery-name ${GALLERY_NAME} --resource-group ${RESOURCE_GROUP_NAME} --location ${LOCATION} --managed-image ${IMAGE_NAME} --target-regions eastus=1 eastus2=1 westeurope=1
