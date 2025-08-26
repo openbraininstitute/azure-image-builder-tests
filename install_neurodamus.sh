@@ -10,9 +10,6 @@ export USR_VENV=$WORKDIR/venv
 
 set -ux
 
-echo "Debugging"
-ping -c 2 1.1.1.1
-
 set -e
 
 export DEBIAN_FRONTEND=noninteractive
@@ -22,7 +19,7 @@ apt-get --yes upgrade
 apt-get --yes install \
                       g++ \
                       gcc \
-                      python3.10 \
+                      python3.11 \
                       python3-pip \
                       python3-venv \
                       git \
@@ -40,90 +37,131 @@ source $USR_VENV/bin/activate
 pip install -U pip setuptools
 pip install -U cython pytest sympy jinja2 pyyaml numpy wheel pkgconfig morphio
 
-echo "Install libsonata"
-CC=mpicc CXX=mpic++ pip install git+https://github.com/openbraininstitute/libsonata@$LIBSONATA_TAG
+echo "Install HDF5"
+export HOME=/root
+set -euo pipefail
+export CC=$(which mpicc)
+export CXX=$(which mpic++)
+mkdir hdf5
+cd hdf5
+curl -O https://support.hdfgroup.org/releases/hdf5/v1_14/v1_14_6/downloads/hdf5-1.14.6.tar.gz
+tar xf hdf5-1.14.6.tar.gz
+cd hdf5-1.14.6
+set +e
+./configure --enable-parallel --enable-shared --prefix=/opt/software/hdf5/hdf5-1.14.6/install
+if [ $? -ne 0 ]; then cat config.log; exit 1; fi
+set -e
+make -j
+make install
+cd ..
+rm -rf hdf5*
 
-echo "Install libsonatareport"
-mkdir -p $WORKDIR
-cd $WORKDIR
-git clone https://github.com/openbraininstitute/libsonatareport.git --recursive --depth 1 -b $LIBSONATAREPORT_TAG
-cmake -B rep_build -S libsonatareport -DCMAKE_INSTALL_PREFIX=$INSTALL_DIR -DCMAKE_BUILD_TYPE=Release -DSONATA_REPORT_ENABLE_SUBMODULES=ON -DSONATA_REPORT_ENABLE_MPI=ON ..
-cmake --build rep_build --parallel
-cmake --install rep_build
-rm -rf libsonatareport rep_build
+export PATH=/opt/software/hdf5/hdf5-1.14.6/install/bin:$PATH
+export LD_LIBRARY_PATH=/opt/software/hdf5/hdf5-1.14.6/install/lib:$LD_LIBRARY_PATH
+cd /opt/circuit_simulation
+python3.11 -m venv neurodamus_venv
+pip install --upgrade pip
+pip install --upgrade setuptools
+pip install --upgrade cython jinja2 numpy pkgconfig pytest pyyaml sympy wheel
+
+echo "Install libsonata"
+cd /opt/software
+pip install git+https://github.com/openbraininstitute/libsonata@master
+git clone https://github.com/openbraininstitute/libsonatareport.git --recursive --depth 1 -b master
+cmake -B libsonatareport/rep_build -S libsonatareport -DCMAKE_INSTALL_PREFIX=/opt/software/install -DCMAKE_BUILD_TYPE=Release -DSONATA_REPORT_ENABLE_SUBMODULES=ON -DSONATA_REPORT_ENABLE_MPI=ON
+cmake --build libsonatareport/rep_build --parallel
+cmake --install libsonatareport/rep_build
+rm -rf libsonatareport
+# CC=mpicc CXX=mpic++ pip install git+https://github.com/openbraininstitute/libsonata@$LIBSONATA_TAG
+
+# echo "Install libsonatareport"
+# mkdir -p $WORKDIR
+# cd $WORKDIR
+# git clone https://github.com/openbraininstitute/libsonatareport.git --recursive --depth 1 -b $LIBSONATAREPORT_TAG
+# cmake -B rep_build -S libsonatareport -DCMAKE_INSTALL_PREFIX=$INSTALL_DIR -DCMAKE_BUILD_TYPE=Release -DSONATA_REPORT_ENABLE_SUBMODULES=ON -DSONATA_REPORT_ENABLE_MPI=ON ..
+# cmake --build rep_build --parallel
+# cmake --install rep_build
+# rm -rf libsonatareport rep_build
 export SONATAREPORT_DIR="$INSTALL_DIR"
 
 echo "Install neuron"
-source $USR_VENV/bin/activate
-cd $WORKDIR
-set +u
-if [[ ! -z $NEURON_COMMIT_ID ]]
-then
-   git clone https://github.com/neuronsimulator/nrn.git
-   cd nrn
-    git checkout $NEURON_COMMIT_ID
-    cd ..
-else
-    git clone https://github.com/neuronsimulator/nrn.git --depth 1 -b $NEURON_TAG
-fi
-set -u
-cmake -B nrn_build -S nrn -DCMAKE_BUILD_TYPE=RelWithDebInfo -DPYTHON_EXECUTABLE=$(which python) -DCMAKE_INSTALL_PREFIX=$INSTALL_DIR -DNRN_ENABLE_MPI=ON -DNRN_ENABLE_INTERVIEWS=OFF -DNRN_ENABLE_RX3D=OFF -DNRN_ENABLE_CORENEURON=ON -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ -DCORENRN_ENABLE_REPORTING=ON -DCMAKE_PREFIX_PATH=$SONATAREPORT_DIR
-cmake --build nrn_build -- -j 2
-cmake --install nrn_build
-rm -rf nrn nrn_build
+cd /opt/software
+git clone https://github.com/neuronsimulator/nrn.git nrn
+cd nrn
+git checkout c48d7d5
+cd ..
+cmake -B nrn/nrn_build -S nrn --debug-output -G Ninja -DPYTHON_EXECUTABLE=$(which python) -DCMAKE_INSTALL_PREFIX=/opt/software/install \
+      -DNRN_ENABLE_MPI=ON -DNRN_ENABLE_INTERVIEWS=OFF -DNRN_ENABLE_RX3D=OFF -DNRN_ENABLE_CORENEURON=ON -DCMAKE_C_COMPILER=gcc \
+      -DCMAKE_CXX_COMPILER=g++ -DCORENRN_ENABLE_REPORTING=ON -DCMAKE_PREFIX_PATH=$SONATAREPORT_DIR
+cmake --build nrn/nrn_build --parallel
+cmake --build nrn/nrn_build --target install
+rm -rf nrn
 
-echo "Build h5py with the local hdf5"
-pip install mpi4py --no-binary=mpi4py
-ARCH=$(uname -m) CC="mpicc" HDF5_MPI="ON" HDF5_INCLUDEDIR=/usr/include/hdf5/mpich HDF5_LIBDIR=/usr/lib/$ARCH-linux-gnu/hdf5/mpich \
-    pip install --no-cache-dir --no-binary=h5py h5py --no-build-isolation
+echo "Build h5py"
+pip install mpi4py
+export HDF5_MPI="ON"
+export HDF5_INCLUDEDIR=/opt/software/hdf5/hdf5-1.14.6/install/include
+export HDF5_LIBDIR=/opt/software/hdf5/hdf5-1.14.6/install/lib
+pip install --no-cache-dir --no-binary=h5py h5py --no-build-isolation
 
 echo "Install neurodamus and prepare HOC_LIBRARY_PATH"
-cd $WORKDIR
+export PATH=${USR_VENV}/bin:$PATH
+export PYTHONPATH=/opt/software/install/lib/python:$PYTHONPATH
 git clone https://github.com/openbraininstitute/neurodamus.git
 cd neurodamus
 pip install .
-
-export HOC_LIBRARY_PATH="$WORKDIR/neurodamus/neurodamus/data/hoc"
-export NEURODAMUS_PYTHON="$WORKDIR/neurodamus/neurodamus/data"
-export NEURODAMUS_MODS_DIR="$WORKDIR/neurodamus/neurodamus/data/mod"
-export PATH="$INSTALL_DIR/bin:$USR_VENV/bin:$PATH"
-set +u
-export PYTHONPATH="$INSTALL_DIR/lib/python:$PYTHONPATH"
-set -u
-export NEURODAMUS_DOCKER_DIR=$WORKDIR/neurodamus/docker
-
-echo "Copy common bluebrain hoc and mod files from neurodamus-models, required for instantiating neurodamus"
-wget -q https://raw.githubusercontent.com/openbraininstitute/neurodamus-models/refs/heads/main/common/hoc/AMPANMDAHelper.hoc -O $HOC_LIBRARY_PATH/AMPANMDAHelper.hoc
-wget -q https://raw.githubusercontent.com/openbraininstitute/neurodamus-models/refs/heads/main/common/hoc/GABAABHelper.hoc -O $HOC_LIBRARY_PATH/GABAABHelper.hoc
-wget -q https://raw.githubusercontent.com/openbraininstitute/neurodamus-models/refs/heads/main/common/mod/ProbAMPANMDA_EMS.mod -O $NEURODAMUS_MODS_DIR/ProbAMPANMDA_EMS.mod
-wget -q https://raw.githubusercontent.com/openbraininstitute/neurodamus-models/refs/heads/main/common/mod/ProbGABAAB_EMS.mod -O $NEURODAMUS_MODS_DIR/ProbGABAAB_EMS.mod
-
-echo "Copy neocortex mod files"
-wget -q https://raw.githubusercontent.com/openbraininstitute/neurodamus-models/refs/heads/main/neocortex/mod/v6/CaDynamics_DC0.mod -O $NEURODAMUS_MODS_DIR/CaDynamics_DC0.mod
-wget -q https://raw.githubusercontent.com/openbraininstitute/neurodamus-models/refs/heads/main/neocortex/mod/v6/Ca_HVA2.mod -O $NEURODAMUS_MODS_DIR/Ca_HVA2.mod
-wget -q https://raw.githubusercontent.com/openbraininstitute/neurodamus-models/refs/heads/main/neocortex/mod/common/Ca_LVAst.mod -O $NEURODAMUS_MODS_DIR/Ca_LVAst.mod
-wget -q https://raw.githubusercontent.com/openbraininstitute/neurodamus-models/refs/heads/main/neocortex/mod/common/Ih.mod -O $NEURODAMUS_MODS_DIR/Ih.mod
-wget -q https://raw.githubusercontent.com/openbraininstitute/neurodamus-models/refs/heads/main/neocortex/mod/common/K_Pst.mod -O $NEURODAMUS_MODS_DIR/K_Pst.mod
-wget -q https://raw.githubusercontent.com/openbraininstitute/neurodamus-models/refs/heads/main/neocortex/mod/common/K_Tst.mod -O $NEURODAMUS_MODS_DIR/K_Tst.mod
-wget -q https://raw.githubusercontent.com/openbraininstitute/neurodamus-models/refs/heads/main/neocortex/mod/common/KdShu2007.mod -O $NEURODAMUS_MODS_DIR/KdShu2007.mod
-wget -q https://raw.githubusercontent.com/openbraininstitute/neurodamus-models/refs/heads/main/neocortex/mod/v6/NaTg.mod -O $NEURODAMUS_MODS_DIR/NaTg.mod
-wget -q https://raw.githubusercontent.com/openbraininstitute/neurodamus-models/refs/heads/main/neocortex/mod/common/Nap_Et2.mod -O $NEURODAMUS_MODS_DIR/Nap_Et2.mod
-wget -q https://raw.githubusercontent.com/openbraininstitute/neurodamus-models/refs/heads/main/neocortex/mod/common/SK_E2.mod -O $NEURODAMUS_MODS_DIR/SK_E2.mod
-wget -q https://raw.githubusercontent.com/openbraininstitute/neurodamus-models/refs/heads/main/neocortex/mod/common/SKv3_1.mod -O $NEURODAMUS_MODS_DIR/SKv3_1.mod
-wget -q https://raw.githubusercontent.com/openbraininstitute/neurodamus-models/refs/heads/main/neocortex/mod/v6/StochKv3.mod -O $NEURODAMUS_MODS_DIR/StochKv3.mod
-wget -q https://raw.githubusercontent.com/openbraininstitute/neurodamus-models/refs/heads/main/common/mod/TTXDynamicsSwitch.mod -O $NEURODAMUS_MODS_DIR/TTXDynamicsSwitch.mod
-wget -q https://raw.githubusercontent.com/openbraininstitute/neurodamus-models/refs/heads/main/common/mod/ConductanceSource.mod -O $NEURODAMUS_MODS_DIR/ConductanceSource.mod
-
-echo "Edit module building script and test build"
-chmod +x $NEURODAMUS_DOCKER_DIR/build_neurodamus.sh
-export ARCH=$(uname -m)
-sed -i "s/ARCH=\"x86_64\"/ARCH=\"$ARCH\"/g" $NEURODAMUS_DOCKER_DIR/build_neurodamus.sh
-cd $INSTALL_DIR
-$NEURODAMUS_DOCKER_DIR/build_neurodamus.sh $NEURODAMUS_MODS_DIR
-./$ARCH/special -python -c "from neuron import h; h.quit()"
-./$ARCH/special -python -c "from neurodamus.core import NeuronWrapper as Nd; Nd.init(); exit()"
-# rm -rf $ARCH/
+cd -
+git clone --branch=main https://github.com/openbraininstitute/neurodamus-models.git
+export DATADIR=$(python -c "import neurodamus; from pathlib import Path; print(Path(neurodamus.__file__).parent / 'data')")
+cmake -B neurodamus-models/build -S neurodamus-models -DCMAKE_INSTALL_PREFIX=/opt/software/install -DCMAKE_INSTALL_RPATH_USE_LINK_PATH=ON -DCMAKE_PREFIX_PATH=${SONATAREPORT_DIR} -DNEURODAMUS_CORE_DIR=${DATADIR} -DNEURODAMUS_MECHANISMS=neocortex -DNEURODAMUS_NCX_V5=ON
+cmake --build neurodamus-models/build
+cmake --install neurodamus-models/build
 
 echo "#!/bin/bash" > "$WORKDIR/env.sh"
 echo "export PATH=$INSTALL_DIR/$ARCH:\$PATH" >> "$WORKDIR/env.sh"
 echo "export CORENEURONLIB=$INSTALL_DIR/$ARCH/libcorenrnmech.so" >> "$WORKDIR/env.sh"
+
+echo << EOF > ${WORKDIR}/env.sh
+#!/bin/bash
+
+# Set up the environment for Neurodamus dependencies
+# HDF5
+export HDF5_DIR=/usr/lib/x86_64-linux-gnu/hdf5/mpich
+export LD_LIBRARY_PATH=\${HDF5_DIR}/lib:\$LD_LIBRARY_PATH
+
+# Same install dir for all OBI repo packages
+export OBI_APPS_DIR=/opt/software/install
+export NRDMUS_VENV=/opt/software/venv
+
+# LibSONATA & LibSONATA-report
+export SONATA_DIR=\${OBI_APPS_DIR}
+export SONATAREPORT_DIR=\${OBI_APPS_DIR}
+
+# Neuron
+export NRN_DIR=\${OBI_APPS_DIR}
+export PATH=\${NRN_DIR}/bin:\$PATH
+
+# Neurodamus (only for compilation)
+export NEURODAMUS_MODS_DIR=/opt/software/neurodamus/neurodamus/data/mod
+
+# Set up runtime variables needed for Neurodamus
+
+# Note: DATADIR should be the output of the following command,
+# but for some reason it points to the install directory and not the Neurodamus repo folder:
+# python -c "import neurodamus; from pathlib import Path; print(Path(neurodamus.__file__).parent / 'data')"
+# --> /home/ec2-user/circuit_simulation/neurodamus_venv/lib64/python3.11/site-packages/neurodamus/data
+export DATADIR=/opt/software/neurodamus/neurodamus/data
+
+export NEURODAMUS_NEOCORTEX_ROOT=\${OBI_APPS_DIR}
+
+export PYTHONPATH=/opt/software/install/lib/python:\$PYTHONPATH
+export HOC_LIBRARY_PATH=\${NEURODAMUS_NEOCORTEX_ROOT}/share/neurodamus_neocortex/hoc
+export NEURODAMUS_PYTHON=/opt/software/venv/lib64/python3.10/site-packages/neurodamus/data/
+export CORENEURONLIB=\${NEURODAMUS_NEOCORTEX_ROOT}/x86_64/libcorenrnmech.so
+export NRNMECH_LIB_PATH=\${NEURODAMUS_NEOCORTEX_ROOT}/x86_64/libnrnmech.so
+export PATH=\${NEURODAMUS_NEOCORTEX_ROOT}/bin:\$PATH
+
+source \${NRDMUS_VENV}/bin/activate
+
+export PATH=/opt/software/install/x86_64:\$PATH
+EOF
