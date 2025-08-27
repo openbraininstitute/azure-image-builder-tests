@@ -22,14 +22,14 @@ apt-get --yes upgrade
 apt-get --yes install \
                       g++ \
                       gcc \
-                      python3.10 \
+                      python3.11 \
                       python3-pip \
                       python3-venv \
                       git \
                       cmake \
                       wget \
                       vim \
-                      mpich libmpich-dev libhdf5-mpich-dev hdf5-tools \
+                      libhdf5-mpich-dev hdf5-tools \
                       flex libfl-dev bison ninja-build libreadline-dev
 apt-get --yes -qq clean
 rm -rf /var/lib/apt/lists/*
@@ -39,6 +39,10 @@ python3 -m venv $USR_VENV
 source $USR_VENV/bin/activate
 pip install -U pip setuptools
 pip install -U cython pytest sympy jinja2 pyyaml numpy wheel pkgconfig morphio
+
+export PATH=/opt/openmpi-5.0.7/bin/:$PATH
+which mpicc
+which mpic++
 
 echo "Install libsonata"
 CC=mpicc CXX=mpic++ pip install git+https://github.com/openbraininstitute/libsonata@$LIBSONATA_TAG
