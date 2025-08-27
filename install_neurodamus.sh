@@ -30,7 +30,8 @@ apt-get --yes install \
                       wget \
                       vim \
                       libhdf5-mpich-dev hdf5-tools \
-                      flex libfl-dev bison ninja-build libreadline-dev
+                      flex libfl-dev bison ninja-build libreadline-dev \
+                      environment-modules
 apt-get --yes -qq clean
 rm -rf /var/lib/apt/lists/*
 
@@ -39,6 +40,11 @@ python3 -m venv $USR_VENV
 source $USR_VENV/bin/activate
 pip install -U pip setuptools
 pip install -U cython pytest sympy jinja2 pyyaml numpy wheel pkgconfig morphio
+
+# export PATH=/opt/openmpi-5.0.7/bin
+
+echo "Load openmpi module"
+. /usr/share/modules/init/bash
 
 module load mpi/openmpi-5.0.7
 which mpicc
