@@ -129,6 +129,9 @@ $NEURODAMUS_DOCKER_DIR/build_neurodamus.sh $NEURODAMUS_MODS_DIR
 ./$ARCH/special -python -c "from neurodamus.core import NeuronWrapper as Nd; Nd.init(); exit()"
 # rm -rf $ARCH/
 
-echo "#!/bin/bash" > "$WORKDIR/env.sh"
-echo "export PATH=$INSTALL_DIR/$ARCH:\$PATH" >> "$WORKDIR/env.sh"
-echo "export CORENEURONLIB=$INSTALL_DIR/$ARCH/libcorenrnmech.so" >> "$WORKDIR/env.sh"
+echo << EOF > "${WORKDIR}/env.sh"
+#!/bin/bash
+export PATH=$INSTALL_DIR/$ARCH:\$PATH
+export CORENEURONLIB=$INSTALL_DIR/$ARCH/libcorenrnmech.so
+module load mpi/openmpi-5.0.7
+EOF
