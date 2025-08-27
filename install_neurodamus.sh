@@ -40,9 +40,10 @@ source $USR_VENV/bin/activate
 pip install -U pip setuptools
 pip install -U cython pytest sympy jinja2 pyyaml numpy wheel pkgconfig morphio
 
-export PATH=/opt/openmpi-5.0.7/bin/:$PATH
+module load mpi/openmpi-5.0.7
 which mpicc
 which mpic++
+which mpirun
 
 echo "Install libsonata"
 CC=mpicc CXX=mpic++ pip install git+https://github.com/openbraininstitute/libsonata@$LIBSONATA_TAG
