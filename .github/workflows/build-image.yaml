@@ -113,14 +113,14 @@ jobs:
       - name: create image template
         run: |-
           set -x
-          EXISTING_TEMPLATES=$(az resource list --name ${IMAGE_NAME} --resource-type 'microsoft.virtualmachineimages/imagetemplates' | jq '.[].name')
+          EXISTING_TEMPLATES=$(az resource list --name ${IMAGE_NAME} --resource-type 'microsoft.virtualmachineimages/imagetemplates' | jq -r '.[].name')
           create=true
-          if [[ "${EXISTING_TEMPLATES}" == *"${IMAGE_NAME}"* ]]
+          if [[ "${EXISTING_TEMPLATES}" == "${IMAGE_NAME}" ]]
           then
             if [[ ${{ inputs.recreate_template }} == true ]]
             then
               echo "Recreating template"
-              resource_id=$(az resource list --name auto-neurodamus --resource-type 'microsoft.virtualmachineimages/imagetemplates' | jq -r '.[].id')
+              resource_id=$(az resource list --name ${IMAGE_NAME} --resource-type 'microsoft.virtualmachineimages/imagetemplates' | jq -r '.[].id')
               az resource delete --ids ${resource_id}
             else
               echo "Template already exists - skipping creation"
