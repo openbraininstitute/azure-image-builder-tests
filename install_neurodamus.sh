@@ -147,6 +147,7 @@ CC="mpicc" HDF5_MPI="ON" HDF5_INCLUDEDIR=$WORKDIR/install/include/ HDF5_LIBDIR=$
     uv pip install --no-binary=h5py h5py --no-build-isolation
 
 echo "Install neurodamus and prepare HOC_LIBRARY_PATH"
+set +u
 cd $WORKDIR
 if [[ ! -e neurodamus ]]; then
     if [[ ! -z $NEURODAMUS_COMMIT_ID ]]; then
@@ -161,7 +162,6 @@ fi
 uv pip install -e neurodamus
 
 export PATH="$INSTALL_DIR/bin:$USR_VENV/bin:$PATH"
-set +u
 export PYTHONPATH="$INSTALL_DIR/lib/python:$PYTHONPATH"
 set -u
 
