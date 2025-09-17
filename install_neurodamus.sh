@@ -1,143 +1,192 @@
 #!/bin/bash
 
+. /usr/share/modules/init/bash
+module load mpi/openmpi
+
+mkdir -p /opt/obi
+cd /opt/obi
+
 export LIBSONATA_TAG=master
 export LIBSONATAREPORT_TAG=master
 export NEURON_TAG=master
 export NEURON_COMMIT_ID
-export WORKDIR=/opt/software
-export INSTALL_DIR=/opt/software/install
+export NEURODAMUS_TAG=3.10.0
+export NEURODAMUS_COMMIT_ID
+export WORKDIR=`pwd`
+export INSTALL_DIR=$WORKDIR/install
 export USR_VENV=$WORKDIR/venv
+UV_INSTALL_DIR=$WORKDIR/uv
+
+CMAKE_BUILD_TYPE=RelWithDebInfo
+export LD_LIBRARY_PATH=$WORKDIR/install/lib:$LD_LIBRARY_PATH
 
 set -ux
 
-echo "Debugging"
-ping -c 2 1.1.1.1
-
 set -e
-
-export DEBIAN_FRONTEND=noninteractive
-echo "Install needed libs"
-apt-get --yes update
-apt-get --yes upgrade
-apt-get --yes install \
-                      g++ \
-                      gcc \
-                      python3.11 \
-                      python3-pip \
-                      python3-venv \
-                      git \
-                      cmake \
-                      wget \
-                      vim \
-                      libhdf5-mpich-dev hdf5-tools \
-                      flex libfl-dev bison ninja-build libreadline-dev \
-                      environment-modules
-apt-get --yes -qq clean
-rm -rf /var/lib/apt/lists/*
+export UV_CACHE_DIR=$WORKDIR/.cache-uv
+export UV_LINK_MODE=symlink
+if [[ ! -f $UV_INSTALL_DIR/uv ]]; then
+	curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=$UV_INSTALL_DIR sh
+fi
+export PATH=$UV_INSTALL_DIR:$PATH
 
 echo "Create venv and install some basic packages"
-python3 -m venv $USR_VENV
+if [[ ! -d $USR_VENV ]]; then
+	uv venv $USR_VENV
+fi
 source $USR_VENV/bin/activate
-pip install -U pip setuptools
-pip install -U cython pytest sympy jinja2 pyyaml numpy wheel pkgconfig morphio
+uv pip install -U pip setuptools
+uv pip install -U cython pytest sympy jinja2 pyyaml numpy wheel pkgconfig morphio
 
-# export PATH=/opt/openmpi-5.0.7/bin
+mkdir -p hdf5
+cd hdf5
 
-echo "Load openmpi module"
-. /usr/share/modules/init/bash
+if [[ ! -e hdf5-1.14.3.tar.gz ]]; then
+	wget https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.14/hdf5-1.14.3/src/hdf5-1.14.3.tar.gz
+fi
 
-module load mpi/openmpi-5.0.7
-which mpicc
-which mpic++
-which mpirun
+if [[ ! -e hdf5-1.14.3 ]]; then
+	tar -xzf hdf5-1.14.3.tar.gz
+fi
+
+cd hdf5-1.14.3
+
+CXX=mpic++ CC=mpicc cmake -B "build" -GNinja \
+	-DCMAKE_BUILD_TYPE=$CMAKE_BUILD_TYPE \
+	-DBUILD_STATIC_LIBS=OFF \
+	-DHDF5_BUILD_UTILS=OFF \
+	-DHDF5_BUILD_HL_LIB=ON \
+	-DHDF5_BUILD_EXAMPLES=OFF \
+	-DHDF5_ENABLE_PARALLEL=ON \
+	-DBUILD_TESTING=OFF \
+	-DHDF5_BUILD_TOOLS=OFF \
+	-DHDF5_ENABLE_SZIP_ENCODING=OFF \
+	-DHDF5_ENABLE_SZIP_SUPPORT=OFF \
+	-DHDF5_ENABLE_Z_LIB_SUPPORT=OFF \
+	-DCMAKE_INSTALL_PREFIX="$WORKDIR/install" \
+	-S .
+
+cmake --build "build" --parallel
+cmake --install "build"
+
+export PATH=$WORKDIR/install/bin:$PATH
+export LD_LIBRARY_PATH=/lib:$LD_LIBRARY_PATH
 
 echo "Install libsonata"
-CC=mpicc CXX=mpic++ pip install git+https://github.com/openbraininstitute/libsonata@$LIBSONATA_TAG
+mkdir -p $WORKDIR
+cd $WORKDIR
+if [[ ! -d libsonata ]]; then
+	git clone https://github.com/openbraininstitute/libsonata --recursive --depth 1 -b $LIBSONATA_TAG
+fi
+SONATA_BUILD_TYPE=$CMAKE_BUILD_TYPE CC=mpicc CXX=mpic++ uv pip install libsonata
 
 echo "Install libsonatareport"
 mkdir -p $WORKDIR
 cd $WORKDIR
-git clone https://github.com/openbraininstitute/libsonatareport.git --recursive --depth 1 -b $LIBSONATAREPORT_TAG
-cmake -B rep_build -S libsonatareport -DCMAKE_INSTALL_PREFIX=$INSTALL_DIR -DCMAKE_BUILD_TYPE=Release -DSONATA_REPORT_ENABLE_SUBMODULES=ON -DSONATA_REPORT_ENABLE_MPI=ON ..
-cmake --build rep_build --parallel
-cmake --install rep_build
-rm -rf libsonatareport rep_build
+if [[ ! -d libsonatareport ]]; then
+	git clone https://github.com/openbraininstitute/libsonatareport.git --recursive --depth 1 -b $LIBSONATAREPORT_TAG
+fi
+cmake -B libsonatareport/build -S libsonatareport -GNinja -DCMAKE_INSTALL_PREFIX=$INSTALL_DIR -DCMAKE_BUILD_TYPE=$CMAKE_BUILD_TYPE -DSONATA_REPORT_ENABLE_SUBMODULES=ON -DSONATA_REPORT_ENABLE_MPI=ON -DSONATA_REPORT_ENABLE_TEST=OFF
+cmake --build libsonatareport/build --parallel
+cmake --install libsonatareport/build
 export SONATAREPORT_DIR="$INSTALL_DIR"
 
 echo "Install neuron"
 source $USR_VENV/bin/activate
 cd $WORKDIR
 set +u
-if [[ ! -z $NEURON_COMMIT_ID ]]
-then
+if [[ ! -z $NEURON_COMMIT_ID ]]; then
    git clone https://github.com/neuronsimulator/nrn.git
    cd nrn
-    git checkout $NEURON_COMMIT_ID
-    cd ..
+   git checkout $NEURON_COMMIT_ID
+   cd ..
 else
     git clone https://github.com/neuronsimulator/nrn.git --depth 1 -b $NEURON_TAG
 fi
+
 set -u
-cmake -B nrn_build -S nrn -DCMAKE_BUILD_TYPE=RelWithDebInfo -DPYTHON_EXECUTABLE=$(which python) -DCMAKE_INSTALL_PREFIX=$INSTALL_DIR -DNRN_ENABLE_MPI=ON -DNRN_ENABLE_INTERVIEWS=OFF -DNRN_ENABLE_RX3D=OFF -DNRN_ENABLE_CORENEURON=ON -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ -DCORENRN_ENABLE_REPORTING=ON -DCMAKE_PREFIX_PATH=$SONATAREPORT_DIR
+
+cmake -B nrn_build -S nrn \
+	-DCMAKE_BUILD_TYPE=$CMAKE_BUILD_TYPE \
+	-DPYTHON_EXECUTABLE=$(which python) \
+	-DCMAKE_INSTALL_PREFIX=$INSTALL_DIR \
+	-DNRN_ENABLE_MPI=ON \
+	-DNRN_ENABLE_INTERVIEWS=OFF \
+	-DNRN_ENABLE_RX3D=OFF \
+	-DNRN_ENABLE_CORENEURON=ON \
+	-DCMAKE_C_COMPILER=mpicc \
+	-DCMAKE_CXX_COMPILER=mpic++ \
+	-DCORENRN_ENABLE_REPORTING=ON \
+	-DCMAKE_PREFIX_PATH=$SONATAREPORT_DIR
 cmake --build nrn_build -- -j 2
 cmake --install nrn_build
-rm -rf nrn nrn_build
+
+echo "Build mpi4py"
+CC="mpicc" uv pip install mpi4py --no-binary=mpi4py
 
 echo "Build h5py with the local hdf5"
-pip install mpi4py --no-binary=mpi4py
-ARCH=$(uname -m) CC="mpicc" HDF5_MPI="ON" HDF5_INCLUDEDIR=/usr/include/hdf5/mpich HDF5_LIBDIR=/usr/lib/$ARCH-linux-gnu/hdf5/mpich \
-    pip install --no-cache-dir --no-binary=h5py h5py --no-build-isolation
+CC="mpicc" HDF5_MPI="ON" HDF5_INCLUDEDIR=$WORKDIR/install/include/ HDF5_LIBDIR=$WORKDIR/install/lib/ \
+    uv pip install --no-binary=h5py h5py --no-build-isolation
 
 echo "Install neurodamus and prepare HOC_LIBRARY_PATH"
 cd $WORKDIR
-git clone https://github.com/openbraininstitute/neurodamus.git
-cd neurodamus
-pip install .
+if [[ ! -e neurodamus ]]; then
+    if [[ ! -z $NEURODAMUS_COMMIT_ID ]]; then
+        git clone https://github.com/openbraininstitute/neurodamus.git
+        cd neurodamus
+        git checkout $NEURODAMUS_COMMIT_ID
+        cd ..
+    else
+        git clone https://github.com/openbraininstitute/neurodamus.git --depth 1 -b $NEURODAMUS_TAG
+    fi
+fi
+uv pip install -e neurodamus
 
-export HOC_LIBRARY_PATH="$WORKDIR/neurodamus/neurodamus/data/hoc"
-export NEURODAMUS_PYTHON="$WORKDIR/neurodamus/neurodamus/data"
-export NEURODAMUS_MODS_DIR="$WORKDIR/neurodamus/neurodamus/data/mod"
 export PATH="$INSTALL_DIR/bin:$USR_VENV/bin:$PATH"
 set +u
 export PYTHONPATH="$INSTALL_DIR/lib/python:$PYTHONPATH"
 set -u
-export NEURODAMUS_DOCKER_DIR=$WORKDIR/neurodamus/docker
 
-echo "Copy common bluebrain hoc and mod files from neurodamus-models, required for instantiating neurodamus"
-wget -q https://raw.githubusercontent.com/openbraininstitute/neurodamus-models/refs/heads/main/common/hoc/AMPANMDAHelper.hoc -O $HOC_LIBRARY_PATH/AMPANMDAHelper.hoc
-wget -q https://raw.githubusercontent.com/openbraininstitute/neurodamus-models/refs/heads/main/common/hoc/GABAABHelper.hoc -O $HOC_LIBRARY_PATH/GABAABHelper.hoc
-wget -q https://raw.githubusercontent.com/openbraininstitute/neurodamus-models/refs/heads/main/common/mod/ProbAMPANMDA_EMS.mod -O $NEURODAMUS_MODS_DIR/ProbAMPANMDA_EMS.mod
-wget -q https://raw.githubusercontent.com/openbraininstitute/neurodamus-models/refs/heads/main/common/mod/ProbGABAAB_EMS.mod -O $NEURODAMUS_MODS_DIR/ProbGABAAB_EMS.mod
+branch=main
 
-echo "Copy neocortex mod files"
-wget -q https://raw.githubusercontent.com/openbraininstitute/neurodamus-models/refs/heads/main/neocortex/mod/v6/CaDynamics_DC0.mod -O $NEURODAMUS_MODS_DIR/CaDynamics_DC0.mod
-wget -q https://raw.githubusercontent.com/openbraininstitute/neurodamus-models/refs/heads/main/neocortex/mod/v6/Ca_HVA2.mod -O $NEURODAMUS_MODS_DIR/Ca_HVA2.mod
-wget -q https://raw.githubusercontent.com/openbraininstitute/neurodamus-models/refs/heads/main/neocortex/mod/common/Ca_LVAst.mod -O $NEURODAMUS_MODS_DIR/Ca_LVAst.mod
-wget -q https://raw.githubusercontent.com/openbraininstitute/neurodamus-models/refs/heads/main/neocortex/mod/common/Ih.mod -O $NEURODAMUS_MODS_DIR/Ih.mod
-wget -q https://raw.githubusercontent.com/openbraininstitute/neurodamus-models/refs/heads/main/neocortex/mod/common/K_Pst.mod -O $NEURODAMUS_MODS_DIR/K_Pst.mod
-wget -q https://raw.githubusercontent.com/openbraininstitute/neurodamus-models/refs/heads/main/neocortex/mod/common/K_Tst.mod -O $NEURODAMUS_MODS_DIR/K_Tst.mod
-wget -q https://raw.githubusercontent.com/openbraininstitute/neurodamus-models/refs/heads/main/neocortex/mod/common/KdShu2007.mod -O $NEURODAMUS_MODS_DIR/KdShu2007.mod
-wget -q https://raw.githubusercontent.com/openbraininstitute/neurodamus-models/refs/heads/main/neocortex/mod/v6/NaTg.mod -O $NEURODAMUS_MODS_DIR/NaTg.mod
-wget -q https://raw.githubusercontent.com/openbraininstitute/neurodamus-models/refs/heads/main/neocortex/mod/common/Nap_Et2.mod -O $NEURODAMUS_MODS_DIR/Nap_Et2.mod
-wget -q https://raw.githubusercontent.com/openbraininstitute/neurodamus-models/refs/heads/main/neocortex/mod/common/SK_E2.mod -O $NEURODAMUS_MODS_DIR/SK_E2.mod
-wget -q https://raw.githubusercontent.com/openbraininstitute/neurodamus-models/refs/heads/main/neocortex/mod/common/SKv3_1.mod -O $NEURODAMUS_MODS_DIR/SKv3_1.mod
-wget -q https://raw.githubusercontent.com/openbraininstitute/neurodamus-models/refs/heads/main/neocortex/mod/v6/StochKv3.mod -O $NEURODAMUS_MODS_DIR/StochKv3.mod
-wget -q https://raw.githubusercontent.com/openbraininstitute/neurodamus-models/refs/heads/main/common/mod/TTXDynamicsSwitch.mod -O $NEURODAMUS_MODS_DIR/TTXDynamicsSwitch.mod
-wget -q https://raw.githubusercontent.com/openbraininstitute/neurodamus-models/refs/heads/main/common/mod/ConductanceSource.mod -O $NEURODAMUS_MODS_DIR/ConductanceSource.mod
+NEOCORTEX_MOD=$WORKDIR/neurodamus-models/
+NEOCORTEX_MOD_BUILD=$NEOCORTEX_MOD/build
 
-echo "Edit module building script and test build"
-chmod +x $NEURODAMUS_DOCKER_DIR/build_neurodamus.sh
+if [[ ! -e $NEOCORTEX_MOD ]]; then
+    git clone --branch="$branch" --depth=1 https://github.com/openbraininstitute/neurodamus-models.git $NEOCORTEX_MOD
+fi
+
+DATADIR=$(python -c "import neurodamus; from pathlib import Path; print(Path(neurodamus.__file__).parent / 'data')")
+
+cmake -B $NEOCORTEX_MOD_BUILD -S $NEOCORTEX_MOD  \
+	-DCMAKE_INSTALL_PREFIX=$INSTALL_DIR \
+	-DCMAKE_INSTALL_RPATH_USE_LINK_PATH=ON \
+	-DCMAKE_PREFIX_PATH=$SONATAREPORT_DIR \
+	-DNEURODAMUS_CORE_DIR=${DATADIR} \
+	-DNEURODAMUS_MECHANISMS=neocortex \
+	-DNEURODAMUS_NCX_V5=ON
+
+cmake --build $NEOCORTEX_MOD_BUILD
+cmake --install $NEOCORTEX_MOD_BUILD
+
 export ARCH=$(uname -m)
-sed -i "s/ARCH=\"x86_64\"/ARCH=\"$ARCH\"/g" $NEURODAMUS_DOCKER_DIR/build_neurodamus.sh
-cd $INSTALL_DIR
-$NEURODAMUS_DOCKER_DIR/build_neurodamus.sh $NEURODAMUS_MODS_DIR
-./$ARCH/special -python -c "from neuron import h; h.quit()"
-./$ARCH/special -python -c "from neurodamus.core import NeuronWrapper as Nd; Nd.init(); exit()"
-# rm -rf $ARCH/
 
-echo << EOF > "${WORKDIR}/env.sh"
+cat << EOF > "$WORKDIR/env.sh"
 #!/bin/bash
-export PATH=$INSTALL_DIR/$ARCH:\$PATH
-export CORENEURONLIB=$INSTALL_DIR/$ARCH/libcorenrnmech.so
-module load mpi/openmpi-5.0.7
+
+. /usr/share/modules/init/bash
+module load mpi/openmpi
+source $USR_VENV/bin/activate
+
+export PATH=$UV_INSTALL_DIR:$INSTALL_DIR/$ARCH/bin:\$PATH
+export CORENEURONLIB=$INSTALL_DIR/$ARCH/lib/libcorenrnmech.so
+export PYTHONPATH=$INSTALL_DIR/lib/python:$PYTHONPATH
+export NEURODAMUS_NEOCORTEX_ROOT=$INSTALL_DIR
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:\$LD_LIBRARY_PATH
+export HOC_LIBRARY_PATH=$WORKDIR/neurodamus/neurodamus/data/hoc
 EOF
+
+cd $INSTALL_DIR
+. $WORKDIR/env.sh
+./$ARCH/bin/special -python -c "from neuron import h; h.quit()"
+./$ARCH/bin/special -python -c "from neurodamus.core import NeuronWrapper as Nd; Nd.init(); exit()"
