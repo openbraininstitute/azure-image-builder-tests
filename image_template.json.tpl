@@ -31,6 +31,11 @@
                 "type": "Shell",
                 "name": "InstallNeurodamus",
                 "scriptUri": "https://raw.githubusercontent.com/openbraininstitute/azure-image-builder-tests/refs/heads/openmpi/install_neurodamus.sh"
+            },
+            {
+                "type": "Shell",
+                "name": "InstallTools",
+                "scriptUri": "https://raw.githubusercontent.com/openbraininstitute/azure-image-builder-tests/refs/heads/openmpi/install_tools.sh"
             }
         ],
         "distribute": [
