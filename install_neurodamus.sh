@@ -23,7 +23,25 @@ export LD_LIBRARY_PATH=$WORKDIR/install/lib:$LD_LIBRARY_PATH
 set -ux
 
 set -e
-export UV_CACHE_DIR=$WORKDIR/.cache-uv
+export DEBIAN_FRONTEND=noninteractive
+echo "Install needed libs"
+apt-get --yes update
+apt-get --yes upgrade
+apt-get --yes install \
+                      g++ \
+                      gcc \
+                      python3.10 \
+                      python3-pip \
+                      python3-venv \
+                      git \
+                      cmake \
+                      wget \
+                      vim \
+                      hdf5-tools \
+                      flex libfl-dev bison ninja-build libreadline-dev
+apt-get --yes -qq clean
+rm -rf /var/lib/apt/lists/*export UV_CACHE_DIR=$WORKDIR/.cache-uv
+
 export UV_LINK_MODE=symlink
 if [[ ! -f $UV_INSTALL_DIR/uv ]]; then
 	curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=$UV_INSTALL_DIR sh
