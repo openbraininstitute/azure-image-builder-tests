@@ -40,7 +40,8 @@ apt-get --yes install \
                       hdf5-tools \
                       flex libfl-dev bison ninja-build libreadline-dev
 apt-get --yes -qq clean
-rm -rf /var/lib/apt/lists/*export UV_CACHE_DIR=$WORKDIR/.cache-uv
+rm -rf /var/lib/apt/lists/*
+export UV_CACHE_DIR=$WORKDIR/.cache-uv
 
 export UV_LINK_MODE=symlink
 if [[ ! -f $UV_INSTALL_DIR/uv ]]; then
