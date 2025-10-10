@@ -1,134 +1,128 @@
 #!/bin/bash
 
-# fixes
-# ################################################################################
-# Judit's start task:
+# # fixes
+# # ################################################################################
+# # Judit's start task:
+# #
+# # no can do: we don't have a batch container URL at the time of building the image
+# mkdir -p /opt/obi/node_setup
+# curl -sL https://aka.ms/downloadazcopy-v10-linux | tar -xz --strip-components=1 -C /usr/local/bin
+# azcopy cp \"${BATCH_CONTAINER_URL}\" /opt/obi/node_setup --recursive
+# mv /opt/obi/node_setup/jpbatchfiles/* /opt/obi/node_setup
+# chmod +x /opt/obi/node_setup/*.sh
+# echo \"Downloaded setup files:\"
+# ls -l /opt/obi/node_setup
+# if [ -f /opt/obi/node_setup/node_setup.sh ]
+# then bash /opt/obi/node_setup/node_setup.sh
+# fi
+# echo \"Start task completed.
+# # ################################################################################
+# # node_setup.sh
+# #
+# # part 1: already taken care of. Mounting NFS needs to happen in startup script, not during image building
+# # part 2 (set up neurodamus env & finish neurodamus installation): added env.sh to install_neurodamus.sh
+# # part 3 (re-install broken packages): added --no-cache-dir argument to all pip commands
+# #!/bin/bash
 #
-# no can do: we don't have a batch container URL at the time of building the image
-"
-mkdir -p /opt/obi/node_setup
-curl -sL https://aka.ms/downloadazcopy-v10-linux | tar -xz --strip-components=1 -C /usr/local/bin
-azcopy cp \"${BATCH_CONTAINER_URL}\" /opt/obi/node_setup --recursive
-mv /opt/obi/node_setup/jpbatchfiles/* /opt/obi/node_setup
-chmod +x /opt/obi/node_setup/*.sh
-echo \"Downloaded setup files:\"
-ls -l /opt/obi/node_setup
-if [ -f /opt/obi/node_setup/node_setup.sh ]
-then bash /opt/obi/node_setup/node_setup.sh
-fi
-echo \"Start task completed.
-"
-# ################################################################################
-# node_setup.sh
+# # Install system packages & mount NFS
+# source /etc/os-release
+# #curl -sSL -O https://packages.microsoft.com/config/${ID}/${VERSION_ID}/packages-microsoft-prod.deb
+# curl -sSL -O https://packages.microsoft.com/config/$(source /etc/os-release && echo "$ID/$VERSION_ID")/packages-microsoft-prod.deb
+# set -x
+# sudo dpkg -i packages-microsoft-prod.deb
+# rm packages-microsoft-prod.deb
+# sudo apt-get update
+# sudo DEBIAN_FRONTEND=noninteractive apt-get install -y aznfs awscli
+# curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+# sudo mkdir -p /mnt/jpstoragenfs/jpscratch-nfs
+# sudo mount -t aznfs jpstoragenfs.file.core.windows.net:/jpstoragenfs/jpscratch-nfs /mnt/jpstoragenfs/jpscratch-nfs -o vers=4,minorversion=1,sec=sys,nconnect=4
 #
-# part 1: already taken care of. Mounting NFS needs to happen in startup script, not during image building
-# part 2 (set up neurodamus env & finish neurodamus installation): added env.sh to install_neurodamus.sh
-# part 3 (re-install broken packages): added --no-cache-dir argument to all pip commands
-"
-#!/bin/bash
-
-# Install system packages & mount NFS
-source /etc/os-release
-#curl -sSL -O https://packages.microsoft.com/config/${ID}/${VERSION_ID}/packages-microsoft-prod.deb
-curl -sSL -O https://packages.microsoft.com/config/$(source /etc/os-release && echo "$ID/$VERSION_ID")/packages-microsoft-prod.deb
-set -x
-sudo dpkg -i packages-microsoft-prod.deb
-rm packages-microsoft-prod.deb
-sudo apt-get update
-sudo DEBIAN_FRONTEND=noninteractive apt-get install -y aznfs awscli
-curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
-sudo mkdir -p /mnt/jpstoragenfs/jpscratch-nfs
-sudo mount -t aznfs jpstoragenfs.file.core.windows.net:/jpstoragenfs/jpscratch-nfs /mnt/jpstoragenfs/jpscratch-nfs -o vers=4,minorversion=1,sec=sys,nconnect=4
-
-# Set up Neurodamus env & finish Neurodamus installation
-if [ -f /opt/obi/node_setup/env.sh ]
-then
- source /opt/obi/node_setup/env.sh
-fi
-
-if id _azbatch &>/dev/null
-then
- export bashrc=/home/_azbatch/.bashrc
- if grep -q "/opt/obi/node_setup/env.sh" "$bashrc"
- then
-  echo "Already sourced in $bashrc"
- else
-  # Check for shebang existance
-  if head -n 1 "$bashrc" | grep -q '^#!'
-   then sed -i '2i source /opt/obi/node_setup/env.sh' "$bashrc"
-   else sed -i '1i source /opt/obi/node_setup/env.sh' "$bashrc"
-  fi
- fi
-fi
-
-
-# Re-install broken packages
-pip3 uninstall -y cython docopt docopt_ng exceptiongroup h5py iniconfig jinja2 libsonata markupsafe morphio mpi4py mpmath neurodamus numpy packaging pkgconfig pluggy psutil py pygments pytest pyximport pyyaml setuptools sympy tomli typing_extensions wheel yaml
-
-pip3 install --no-cache-dir cython docopt docopt_ng exceptiongroup h5py iniconfig jinja2 libsonata markupsafe morphio mpi4py mpmath numpy packaging pkgconfig pluggy psutil py pygments pytest pyximport pyyaml setuptools sympy tomli typing_extensions wheel yaml
-
-cd /opt/obi/neurodamus
-pip3 install --no-cache-dir .
-
-wget -q https://raw.githubusercontent.com/openbraininstitute/neurodamus-models/refs/heads/main/common/hoc/AMPANMDAHelper.hoc -O $HOC_LIBRARY_PATH/AMPANMDAHelper.hoc
-wget -q https://raw.githubusercontent.com/openbraininstitute/neurodamus-models/refs/heads/main/common/hoc/GABAABHelper.hoc -O $HOC_LIBRARY_PATH/GABAABHelper.hoc
-wget -q https://raw.githubusercontent.com/openbraininstitute/neurodamus-models/refs/heads/main/common/mod/ProbAMPANMDA_EMS.mod -O $NEURODAMUS_MODS_DIR/ProbAMPANMDA_EMS.mod
-wget -q https://raw.githubusercontent.com/openbraininstitute/neurodamus-models/refs/heads/main/common/mod/ProbGABAAB_EMS.mod -O $NEURODAMUS_MODS_DIR/ProbGABAAB_EMS.mod
-"
-# ################################################################################
-# the updated env.sh script:
-"
-#!/bin/bash
-
-# Set up the environment for Neurodamus dependencies
-# MPI
-export MPI_DIR=/opt/openmpi-5.0.7
-export PATH=${MPI_DIR}/bin:$PATH
-export LD_LIBRARY_PATH=/opt/mellanox/hcoll/lib:$LD_LIBRARY_PATH
-export LD_LIBRARY_PATH=${MPI_DIR}/lib:$LD_LIBRARY_PATH
-# HDF5
-export HDF5_DIR=/opt/obi/install
-export LD_LIBRARY_PATH=${HDF5_DIR}/lib:$LD_LIBRARY_PATH
-
-# Same install dir for all OBI repo packages
-export OBI_APPS_DIR=/opt/obi/install
-export NRDMUS_VENV=/opt/obi/venv
-
-# LibSONATA & LibSONATA-report
-export SONATA_DIR=${OBI_APPS_DIR}
-export SONATAREPORT_DIR=${OBI_APPS_DIR}
-
-# Neuron
-export NRN_DIR=${OBI_APPS_DIR}
-export PATH=${NRN_DIR}/bin:$PATH
-
-# Set up runtime variables needed for Neurodamus
-
-# Note: DATADIR should be the output of the following command,
-# but for some reason it points to the install directory and not the Neurodamus repo folder:
-# python -c "import neurodamus; from pathlib import Path; print(Path(neurodamus.__file__).parent / 'data')"
-# --> /home/ec2-user/circuit_simulation/neurodamus_venv/lib64/python3.11/site-packages/neurodamus/data
-export DATADIR=/opt/obi/venv/lib64/python3.10/site-packages/neurodamus/data
-
-# Neurodamus (only for compilation)
-export NEURODAMUS_MODS_DIR=${DATADIR}/mod
-
-export NEURODAMUS_NEOCORTEX_ROOT=${OBI_APPS_DIR}
-
-export PYTHONPATH=/opt/obi/install/lib/python:$PYTHONPATH
-export HOC_LIBRARY_PATH=${NEURODAMUS_NEOCORTEX_ROOT}/share/neurodamus_neocortex/hoc
-export HOC_LIBRARY_PATH=${DATADIR}/hoc
-export NEURODAMUS_PYTHON=${DATADIR} #/opt/obi/venv/lib64/python3.10/site-packages/neurodamus/data/
-export CORENEURONLIB=${NEURODAMUS_NEOCORTEX_ROOT}/x86_64/libcorenrnmech.so
-export NRNMECH_LIB_PATH=${NEURODAMUS_NEOCORTEX_ROOT}/x86_64/libnrnmech.so
-export PATH=${NEURODAMUS_NEOCORTEX_ROOT}/bin:$PATH
-
-source ${NRDMUS_VENV}/bin/activate
-
-export PATH=/opt/obi/install/x86_64:$PATH
-"
-
-# ################################################################################
+# # Set up Neurodamus env & finish Neurodamus installation
+# if [ -f /opt/obi/node_setup/env.sh ]
+# then
+#  source /opt/obi/node_setup/env.sh
+# fi
+#
+# if id _azbatch &>/dev/null
+# then
+#  export bashrc=/home/_azbatch/.bashrc
+#  if grep -q "/opt/obi/node_setup/env.sh" "$bashrc"
+#  then
+#   echo "Already sourced in $bashrc"
+#  else
+#   # Check for shebang existance
+#   if head -n 1 "$bashrc" | grep -q '^#!'
+#    then sed -i '2i source /opt/obi/node_setup/env.sh' "$bashrc"
+#    else sed -i '1i source /opt/obi/node_setup/env.sh' "$bashrc"
+#   fi
+#  fi
+# fi
+#
+#
+# # Re-install broken packages
+# pip3 uninstall -y cython docopt docopt_ng exceptiongroup h5py iniconfig jinja2 libsonata markupsafe morphio mpi4py mpmath neurodamus numpy packaging pkgconfig pluggy psutil py pygments pytest pyximport pyyaml setuptools sympy tomli typing_extensions wheel yaml
+#
+# pip3 install --no-cache-dir cython docopt docopt_ng exceptiongroup h5py iniconfig jinja2 libsonata markupsafe morphio mpi4py mpmath numpy packaging pkgconfig pluggy psutil py pygments pytest pyximport pyyaml setuptools sympy tomli typing_extensions wheel yaml
+#
+# cd /opt/obi/neurodamus
+# pip3 install --no-cache-dir .
+#
+# wget -q https://raw.githubusercontent.com/openbraininstitute/neurodamus-models/refs/heads/main/common/hoc/AMPANMDAHelper.hoc -O $HOC_LIBRARY_PATH/AMPANMDAHelper.hoc
+# wget -q https://raw.githubusercontent.com/openbraininstitute/neurodamus-models/refs/heads/main/common/hoc/GABAABHelper.hoc -O $HOC_LIBRARY_PATH/GABAABHelper.hoc
+# wget -q https://raw.githubusercontent.com/openbraininstitute/neurodamus-models/refs/heads/main/common/mod/ProbAMPANMDA_EMS.mod -O $NEURODAMUS_MODS_DIR/ProbAMPANMDA_EMS.mod
+# wget -q https://raw.githubusercontent.com/openbraininstitute/neurodamus-models/refs/heads/main/common/mod/ProbGABAAB_EMS.mod -O $NEURODAMUS_MODS_DIR/ProbGABAAB_EMS.mod
+# # ################################################################################
+# # the updated env.sh script:
+# #!/bin/bash
+#
+# # Set up the environment for Neurodamus dependencies
+# # MPI
+# export MPI_DIR=/opt/openmpi-5.0.7
+# export PATH=${MPI_DIR}/bin:$PATH
+# export LD_LIBRARY_PATH=/opt/mellanox/hcoll/lib:$LD_LIBRARY_PATH
+# export LD_LIBRARY_PATH=${MPI_DIR}/lib:$LD_LIBRARY_PATH
+# # HDF5
+# export HDF5_DIR=/opt/obi/install
+# export LD_LIBRARY_PATH=${HDF5_DIR}/lib:$LD_LIBRARY_PATH
+#
+# # Same install dir for all OBI repo packages
+# export OBI_APPS_DIR=/opt/obi/install
+# export NRDMUS_VENV=/opt/obi/venv
+#
+# # LibSONATA & LibSONATA-report
+# export SONATA_DIR=${OBI_APPS_DIR}
+# export SONATAREPORT_DIR=${OBI_APPS_DIR}
+#
+# # Neuron
+# export NRN_DIR=${OBI_APPS_DIR}
+# export PATH=${NRN_DIR}/bin:$PATH
+#
+# # Set up runtime variables needed for Neurodamus
+#
+# # Note: DATADIR should be the output of the following command,
+# # but for some reason it points to the install directory and not the Neurodamus repo folder:
+# # python -c "import neurodamus; from pathlib import Path; print(Path(neurodamus.__file__).parent / 'data')"
+# # --> /home/ec2-user/circuit_simulation/neurodamus_venv/lib64/python3.11/site-packages/neurodamus/data
+# export DATADIR=/opt/obi/venv/lib64/python3.10/site-packages/neurodamus/data
+#
+# # Neurodamus (only for compilation)
+# export NEURODAMUS_MODS_DIR=${DATADIR}/mod
+#
+# export NEURODAMUS_NEOCORTEX_ROOT=${OBI_APPS_DIR}
+#
+# export PYTHONPATH=/opt/obi/install/lib/python:$PYTHONPATH
+# export HOC_LIBRARY_PATH=${NEURODAMUS_NEOCORTEX_ROOT}/share/neurodamus_neocortex/hoc
+# export HOC_LIBRARY_PATH=${DATADIR}/hoc
+# export NEURODAMUS_PYTHON=${DATADIR} #/opt/obi/venv/lib64/python3.10/site-packages/neurodamus/data/
+# export CORENEURONLIB=${NEURODAMUS_NEOCORTEX_ROOT}/x86_64/libcorenrnmech.so
+# export NRNMECH_LIB_PATH=${NEURODAMUS_NEOCORTEX_ROOT}/x86_64/libnrnmech.so
+# export PATH=${NEURODAMUS_NEOCORTEX_ROOT}/bin:$PATH
+#
+# source ${NRDMUS_VENV}/bin/activate
+#
+# export PATH=/opt/obi/install/x86_64:$PATH
+#
+# # ################################################################################
 
 . /usr/share/modules/init/bash
 module load mpi/openmpi
