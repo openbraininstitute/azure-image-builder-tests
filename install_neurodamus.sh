@@ -21,7 +21,7 @@
 # #
 # # part 1: already taken care of. Mounting NFS needs to happen in startup script, not during image building
 # # part 2 (set up neurodamus env & finish neurodamus installation): added env.sh to install_neurodamus.sh
-# # part 3 (re-install broken packages): added --no-cache-dir argument to all pip commands
+# # part 3 (re-install broken packages): added --no-cache-dir argument to all pip commands. Then removed it again because it's incompatible with uv's symlink mode
 # #!/bin/bash
 #
 # # Install system packages & mount NFS
@@ -178,8 +178,8 @@ if [[ ! -d $USR_VENV ]]; then
 	uv venv $USR_VENV
 fi
 source $USR_VENV/bin/activate
-uv pip install --no-cache-dir -U pip setuptools
-uv pip install --no-cache-dir -U cython pytest sympy jinja2 pyyaml numpy wheel pkgconfig morphio
+uv pip install -U pip setuptools
+uv pip install -U cython pytest sympy jinja2 pyyaml numpy wheel pkgconfig morphio
 
 mkdir -p hdf5
 cd hdf5
@@ -221,7 +221,7 @@ cd $WORKDIR
 if [[ ! -d libsonata ]]; then
 	git clone https://github.com/openbraininstitute/libsonata --recursive --depth 1 -b $LIBSONATA_TAG
 fi
-SONATA_BUILD_TYPE=$CMAKE_BUILD_TYPE CC=mpicc CXX=mpic++ uv pip install --no-cache-dir libsonata
+SONATA_BUILD_TYPE=$CMAKE_BUILD_TYPE CC=mpicc CXX=mpic++ uv pip install libsonata
 
 echo "Install libsonatareport"
 mkdir -p $WORKDIR
@@ -265,11 +265,11 @@ cmake --build nrn_build -- -j 2
 cmake --install nrn_build
 
 echo "Build mpi4py"
-CC="mpicc" uv pip install --no-cache-dir mpi4py --no-binary=mpi4py
+CC="mpicc" uv pip install mpi4py --no-binary=mpi4py
 
 echo "Build h5py with the local hdf5"
 CC="mpicc" HDF5_MPI="ON" HDF5_INCLUDEDIR=$WORKDIR/install/include/ HDF5_LIBDIR=$WORKDIR/install/lib/ \
-    uv pip install --no-cache-dir --no-binary=h5py h5py --no-build-isolation
+    uv pip install --no-binary=h5py h5py --no-build-isolation
 
 echo "Install neurodamus and prepare HOC_LIBRARY_PATH"
 set +u
@@ -284,7 +284,7 @@ if [[ ! -e neurodamus ]]; then
         git clone https://github.com/openbraininstitute/neurodamus.git --depth 1 -b $NEURODAMUS_TAG
     fi
 fi
-uv pip install --no-cache-dir -e neurodamus
+uv pip install -e neurodamus
 
 export PATH="$INSTALL_DIR/bin:$USR_VENV/bin:$PATH"
 export PYTHONPATH="$INSTALL_DIR/lib/python:$PYTHONPATH"
