@@ -322,23 +322,23 @@ module load mpi/openmpi
 source $USR_VENV/bin/activate
 
 export MPI_DIR=/opt/openmpi-5.0.7
-export PATH=$MPI_DIR/bin:$UV_INSTALL_DIR:$INSTALL_DIR:$INSTALL_DIR/bin:$INSTALL_DIR/$ARCH:$INSTALL_DIR/$ARCH/bin:\$PATH
+export PATH=\$MPI_DIR/bin:$UV_INSTALL_DIR:$INSTALL_DIR:$INSTALL_DIR/bin:$INSTALL_DIR/$ARCH:$INSTALL_DIR/$ARCH/bin:\$PATH
 # export CORENEURONLIB=$INSTALL_DIR/$ARCH/lib/libcorenrnmech.so # commented in favour of Judit's version below
 export PYTHONPATH=$INSTALL_DIR/lib/python:$PYTHONPATH
 export NEURODAMUS_NEOCORTEX_ROOT=$INSTALL_DIR
-export LD_LIBRARY_PATH=/opt/obi/install/lib:$MPI_DIR/lib:$LD_LIBRARY_PATH:\$LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=/opt/obi/install/lib:\$MPI_DIR/lib:$LD_LIBRARY_PATH:\$LD_LIBRARY_PATH
 # export HOC_LIBRARY_PATH=$WORKDIR/neurodamus/neurodamus/data/hoc # commented in favour of Judit's version below
 
 export OBI_APPS_DIR=/opt/obi/install
-export SONATA_DIR=${OBI_APPS_DIR}
-export SONATAREPORT_DIR=${OBI_APPS_DIR}
-export NRN_DIR=${OBI_APPS_DIR}
+export SONATA_DIR=\${OBI_APPS_DIR}
+export SONATAREPORT_DIR=\${OBI_APPS_DIR}
+export NRN_DIR=\${OBI_APPS_DIR}
 export DATADIR=/opt/obi/venv/lib64/python3.10/site-packages/neurodamus/data
-export NEURODAMUS_MODS_DIR=${DATADIR}/mod
-export HOC_LIBRARY_PATH=${DATADIR}/hoc
-export NEURODAMUS_PYTHON=${DATADIR}
-export CORENEURONLIB=${NEURODAMUS_NEOCORTEX_ROOT}/x86_64/libcorenrnmech.so
-export NRNMECH_LIB_PATH=${NEURODAMUS_NEOCORTEX_ROOT}/x86_64/libnrnmech.so
+export NEURODAMUS_MODS_DIR=\${DATADIR}/mod
+export HOC_LIBRARY_PATH=\${DATADIR}/hoc
+export NEURODAMUS_PYTHON=\${DATADIR}
+export CORENEURONLIB=\${NEURODAMUS_NEOCORTEX_ROOT}/x86_64/libcorenrnmech.so
+export NRNMECH_LIB_PATH=\${NEURODAMUS_NEOCORTEX_ROOT}/x86_64/libnrnmech.so
 EOF
 
 cd $INSTALL_DIR
