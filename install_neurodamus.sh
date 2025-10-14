@@ -134,7 +134,7 @@ export LIBSONATA_TAG=master
 export LIBSONATAREPORT_TAG=master
 export NEURON_TAG=master
 export NEURON_COMMIT_ID
-export NEURODAMUS_TAG=3.10.0
+export NEURODAMUS_TAG=3.11.0
 export NEURODAMUS_COMMIT_ID
 export WORKDIR=`pwd`
 export INSTALL_DIR=$WORKDIR/install
@@ -337,8 +337,8 @@ export DATADIR=/opt/obi/venv/lib64/python3.10/site-packages/neurodamus/data
 export NEURODAMUS_MODS_DIR=\${DATADIR}/mod
 export HOC_LIBRARY_PATH=\${DATADIR}/hoc
 export NEURODAMUS_PYTHON=\${DATADIR}
-export CORENEURONLIB=\${NEURODAMUS_NEOCORTEX_ROOT}/x86_64/libcorenrnmech.so
-export NRNMECH_LIB_PATH=\${NEURODAMUS_NEOCORTEX_ROOT}/x86_64/libnrnmech.so
+export CORENEURONLIB=\${NEURODAMUS_NEOCORTEX_ROOT}/x86_64/lib/libcorenrnmech.so
+export NRNMECH_LIB_PATH=\${NEURODAMUS_NEOCORTEX_ROOT}/x86_64/lib/libnrnmech.so
 EOF
 
 cd $INSTALL_DIR
