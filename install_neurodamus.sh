@@ -327,7 +327,7 @@ export PATH=\$MPI_DIR/bin:$UV_INSTALL_DIR:$INSTALL_DIR:$INSTALL_DIR/bin:$INSTALL
 export PYTHONPATH=$INSTALL_DIR/lib/python:$PYTHONPATH
 export NEURODAMUS_NEOCORTEX_ROOT=$INSTALL_DIR
 export LD_LIBRARY_PATH=/opt/obi/install/lib:\$MPI_DIR/lib:$LD_LIBRARY_PATH:\$LD_LIBRARY_PATH
-# export HOC_LIBRARY_PATH=$WORKDIR/neurodamus/neurodamus/data/hoc # commented in favour of Judit's version below
+# export HOC_LIBRARY_PATH=$WORKDIR/neurodamus/neurodamus/data/hoc # commented in favour of Judit's version below - this is the source dir
 
 export OBI_APPS_DIR=/opt/obi/install
 export SONATA_DIR=\${OBI_APPS_DIR}
@@ -335,16 +335,29 @@ export SONATAREPORT_DIR=\${OBI_APPS_DIR}
 export NRN_DIR=\${OBI_APPS_DIR}
 export DATADIR=/opt/obi/venv/lib64/python3.10/site-packages/neurodamus/data
 export NEURODAMUS_MODS_DIR=\${DATADIR}/mod
-export HOC_LIBRARY_PATH=\${DATADIR}/hoc
+export HOC_LIBRARY_PATH=\${DATADIR}/hoc  # and this is the install dir, it should really be this one
 export NEURODAMUS_PYTHON=\${DATADIR}
 export CORENEURONLIB=\${NEURODAMUS_NEOCORTEX_ROOT}/x86_64/lib/libcorenrnmech.so
 export NRNMECH_LIB_PATH=\${NEURODAMUS_NEOCORTEX_ROOT}/x86_64/lib/libnrnmech.so
 EOF
 
+set +e
+echo "Listing source hoc dir"
+ls -alh $WORKDIR/neurodamus/neurodamus/data/hoc
+echo "Listing install hoc dir"
+ls -alh /opt/obi/venv/lib64/python3.10/site-packages/neurodamus/data/hoc
+echo "Listing all files in /opt"
+find /opt
+echo "Done listing all files in /opt"
+set -e
+
 cd $INSTALL_DIR
 . $WORKDIR/env.sh
+echo "Testing neuron"
 ./$ARCH/bin/special -python -c "from neuron import h; h.quit()"
+echo "Testing neurodamus"
 ./$ARCH/bin/special -python -c "from neurodamus.core import NeuronWrapper as Nd; Nd.init(); exit()"
+echo "Testing done"
 
 
 if id _azbatch &>/dev/null
