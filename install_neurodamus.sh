@@ -314,6 +314,9 @@ cmake --install $NEOCORTEX_MOD_BUILD
 
 export ARCH=$(uname -m)
 
+date
+
+echo $(date) > "$WORKDIR/timestamp.txt"
 cat << EOF > "$WORKDIR/env.sh"
 #!/bin/bash
 
@@ -340,6 +343,8 @@ export NEURODAMUS_PYTHON=\${DATADIR}
 export CORENEURONLIB=\${NEURODAMUS_NEOCORTEX_ROOT}/x86_64/lib/libcorenrnmech.so
 export NRNMECH_LIB_PATH=\${NEURODAMUS_NEOCORTEX_ROOT}/x86_64/lib/libnrnmech.so
 EOF
+
+cat "$WORKDIR/env.sh"
 
 set +e
 echo "Listing source hoc dir"
