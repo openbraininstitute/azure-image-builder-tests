@@ -363,7 +363,7 @@ echo "Testing done"
 if id _azbatch &>/dev/null
 then
      export bashrc=/home/_azbatch/.bashrc
-     if grep -q "/opt/obi/node_setup/env.sh" "$bashrc"
+     if grep -q "${WORKDIR}/env.sh" "$bashrc"
      then
           echo "Already sourced in $bashrc"
      else
