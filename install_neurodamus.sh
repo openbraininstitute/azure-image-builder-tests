@@ -130,11 +130,11 @@ module load mpi/openmpi
 mkdir -p /opt/obi
 cd /opt/obi
 
-export LIBSONATA_TAG=master
-export LIBSONATAREPORT_TAG=master
-export NEURON_TAG=master
-export NEURON_COMMIT_ID
-export NEURODAMUS_TAG=3.11.0
+export LIBSONATA_TAG=v0.1.30
+export LIBSONATAREPORT_TAG=1.2.5
+export NEURON_TAG=master  # if NEURON_COMMIT_ID is not set
+export NEURON_COMMIT_ID=c48d7d5
+export NEURODAMUS_TAG=3.10.0
 export NEURODAMUS_COMMIT_ID
 export WORKDIR=`pwd`
 export INSTALL_DIR=$WORKDIR/install
@@ -290,7 +290,7 @@ export PATH="$INSTALL_DIR/bin:$USR_VENV/bin:$PATH"
 export PYTHONPATH="$INSTALL_DIR/lib/python:$PYTHONPATH"
 set -u
 
-branch=main
+branch=2.4.2
 
 NEOCORTEX_MOD=$WORKDIR/neurodamus-models/
 NEOCORTEX_MOD_BUILD=$NEOCORTEX_MOD/build
