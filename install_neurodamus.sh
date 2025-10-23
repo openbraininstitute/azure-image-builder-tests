@@ -284,7 +284,9 @@ if [[ ! -e neurodamus ]]; then
         git clone https://github.com/openbraininstitute/neurodamus.git --depth 1 -b $NEURODAMUS_TAG
     fi
 fi
-uv pip install neurodamus
+cd neurodamus
+uv pip install .
+cd ..
 
 export PATH="$INSTALL_DIR/bin:$USR_VENV/bin:$PATH"
 export PYTHONPATH="$INSTALL_DIR/lib/python:$PYTHONPATH"
