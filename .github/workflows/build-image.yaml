@@ -113,14 +113,14 @@ jobs:
       - name: create image template
         run: |-
           set -x
-          EXISTING_TEMPLATES=$(az resource list --name ${IMAGE_NAME} --resource-type 'microsoft.virtualmachineimages/imagetemplates' | jq '.[].name')
+          EXISTING_TEMPLATES=$(az resource list --name ${IMAGE_NAME} --resource-type 'microsoft.virtualmachineimages/imagetemplates' | jq -r '.[].name')
           create=true
-          if [[ "${EXISTING_TEMPLATES}" == *"${IMAGE_NAME}"* ]]
+          if [[ "${EXISTING_TEMPLATES}" == "${IMAGE_NAME}" ]]
           then
             if [[ ${{ inputs.recreate_template }} == true ]]
             then
               echo "Recreating template"
-              resource_id=$(az resource list --name auto-neurodamus --resource-type 'microsoft.virtualmachineimages/imagetemplates' | jq -r '.[].id')
+              resource_id=$(az resource list --name ${IMAGE_NAME} --resource-type 'microsoft.virtualmachineimages/imagetemplates' | jq -r '.[].id')
               az resource delete --ids ${resource_id}
             else
               echo "Template already exists - skipping creation"
@@ -144,8 +144,39 @@ jobs:
           if [[ ${{ inputs.build_image_from_template }} == true ]]
           then
             echo "Building image from template"
-            az image builder run --name ${IMAGE_NAME} --subscription ${SUBSCRIPTION_ID} --resource-group ${RESOURCE_GROUP_NAME}
+            # waiting is broken and unlikely to be fixed any time soon: https://github.com/Azure/login/issues/372
+            az image builder run --name ${IMAGE_NAME} --subscription ${SUBSCRIPTION_ID} --resource-group ${RESOURCE_GROUP_NAME} || true
           fi
+      - name: configure Azure credentials - again
+        uses: azure/login@v1
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: check whether image build succeeded
+        run: |-
+          set -x
+          if [[ ${{ inputs.build_image_from_template }} == true ]]
+          then
+            build_status=$(az image builder show --name ${IMAGE_NAME} --resource-group ${RESOURCE_GROUP_NAME} | jq -r .lastRunStatus.runState)
+            while [[ "${build_status}" == "Running" ]]
+            do
+              echo "az image builder run got bored, build not finished yet"
+              build_status=$(az image builder show --name ${IMAGE_NAME} --resource-group ${RESOURCE_GROUP_NAME} | jq -r .lastRunStatus.runState)
+              sleep 5
+            done
+            if [[ "${build_status}" != "Succeeded" ]]
+            then
+              echo "Build finished with status ${build_status}"
+              exit 1
+            fi
+          fi
+      - name: configure Azure credentials - again, just to make sure
+        uses: azure/login@v1
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
       - name: ensure image gallery exists
         run: |-
           set -x
