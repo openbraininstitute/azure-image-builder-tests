@@ -1,9 +1,10 @@
 #!/bin/bash
 
-export LIBSONATA_TAG=master
-export LIBSONATAREPORT_TAG=master
-export NEURON_TAG=master
+export LIBSONATA_TAG=v0.1.34
+export LIBSONATAREPORT_TAG=2.0.0
+export NEURON_TAG=9.0.1
 export NEURON_COMMIT_ID
+export NEURODAMUS_TAG=4.1.1
 export WORKDIR=/opt/software
 export INSTALL_DIR=/opt/software/install
 export USR_VENV=$WORKDIR/venv
@@ -79,7 +80,8 @@ ARCH=$(uname -m) CC="mpicc" HDF5_MPI="ON" HDF5_INCLUDEDIR=/usr/include/hdf5/mpic
 
 echo "Install neurodamus and prepare HOC_LIBRARY_PATH"
 cd $WORKDIR
-git clone https://github.com/openbraininstitute/neurodamus.git
+git clone https://github.com/openbraininstitute/neurodamus.git --recursive --depth 1 -b $NEURODAMUS_TAG
+# git clone https://github.com/openbraininstitute/neurodamus.git
 cd neurodamus
 pip install .
 
