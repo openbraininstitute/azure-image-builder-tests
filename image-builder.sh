@@ -13,7 +13,7 @@ then
     echo "Resource group ${RESOURCE_GROUP_NAME} already exists - skipping create"
 else
     echo "Create resource group ${RESOURCE_GROUP_NAME}"
-    az group create --name=${RESOURCE_GROUP_NAME} --location=${LOCATION}
+    az group create --name=${RESOURCE_GROUP_NAME} --location=${LOCATION} --tags "OBI_components=common"
 fi
 
 # create identity
