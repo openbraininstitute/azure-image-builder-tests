@@ -6,9 +6,9 @@ on:
       environment:
         description: Which environment to build the image in
         type: choice
-        options: [ErikSandbox]
+        options: [obi-machine-images]
         required: true
-        default: ErikSandbox
+        default: obi-machine-images
       recreate_template:
         description: Recreate the template  if it already exists
         type: boolean
