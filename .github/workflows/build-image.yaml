@@ -145,7 +145,7 @@ jobs:
           then
             echo "Building image from template"
             # waiting is broken and unlikely to be fixed any time soon: https://github.com/Azure/login/issues/372
-            az image builder run --name ${IMAGE_NAME} --subscription ${SUBSCRIPTION_ID} --resource-group ${RESOURCE_GROUP_NAME} || true
+            az image builder run --name ${IMAGE_NAME} --subscription ${SUBSCRIPTION_ID} --resource-group ${RESOURCE_GROUP_NAME} --no-wait || true
           fi
       - name: configure Azure credentials - again
         uses: azure/login@v1
