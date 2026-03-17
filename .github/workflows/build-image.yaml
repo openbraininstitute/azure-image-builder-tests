@@ -136,11 +136,15 @@ jobs:
             sed -i -e "s%<imageName>%${IMAGE_NAME}%g" image_template.json
             sed -i -e "s%<runOutputName>%${RUN_OUTPUT_NAME}%g" image_template.json
             sed -i -e "s%<imgBuilderId>%${TEMPLATE_IMAGE_BUILDER_ID}%g" image_template.json
-            az resource create --resource-group ${RESOURCE_GROUP_NAME} --properties '@image_template.json' --is-full-object --resource-type Microsoft.VirtualMachineImages/imageTemplates --name ${IMAGE_NAME}
+            OUTPUT=$(az resource create --resource-group ${RESOURCE_GROUP_NAME} --properties '@image_template.json' --is-full-object --resource-type Microsoft.VirtualMachineImages/imageTemplates --name ${IMAGE_NAME})
+            STAGING_RG_NAME=$(echo ${OUTPUT} | jq -r .properties.exactStagingResourceGroup)
+            echo STAGING_RG_NAME=${STAGING_RG_NAME} >> $GITHUB_ENV
+            echo "Staging resource group is ${STAGING_RG_NAME}"
           fi
       - name: build image from template
         run: |-
           set -x
+          echo "Staging resource group is ${{ env.STAGING_RG_NAME }}"
           if [[ ${{ inputs.build_image_from_template }} == true ]]
           then
             echo "Building image from template"
@@ -236,3 +240,8 @@ jobs:
         run: |-
           set -x
           az sig image-version create --gallery-image-definition ${IMAGE_NAME} --gallery-image-version ${IMAGE_VERSION} --gallery-name ${GALLERY_NAME} --resource-group ${RESOURCE_GROUP_NAME} --location ${LOCATION} --managed-image ${IMAGE_NAME} --target-regions southcentralus=1 --tags OBI_components=hpc
+      - name: Cleanup staging resource group
+        run: |-
+          set -x
+          echo "Deleting resource group ${{ env.STAGING_RG_NAME }}"
+          az group delete --name ${{ env.STAGING_RG_NAME }} --yes --no-wait
