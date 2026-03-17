@@ -137,7 +137,7 @@ jobs:
             sed -i -e "s%<runOutputName>%${RUN_OUTPUT_NAME}%g" image_template.json
             sed -i -e "s%<imgBuilderId>%${TEMPLATE_IMAGE_BUILDER_ID}%g" image_template.json
             OUTPUT=$(az resource create --resource-group ${RESOURCE_GROUP_NAME} --properties '@image_template.json' --is-full-object --resource-type Microsoft.VirtualMachineImages/imageTemplates --name ${IMAGE_NAME})
-            STAGING_RG_NAME=$(echo ${OUTPUT} | jq -r .properties.exactStagingResourceGroup)
+            STAGING_RG_NAME=$(echo ${OUTPUT} | jq -r .properties.exactStagingResourceGroup | awk -F'/' '{print $NF}')
             echo STAGING_RG_NAME=${STAGING_RG_NAME} >> $GITHUB_ENV
             echo "Staging resource group is ${STAGING_RG_NAME}"
           fi
