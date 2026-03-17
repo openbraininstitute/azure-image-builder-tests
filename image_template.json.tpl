@@ -5,7 +5,8 @@
     "dependsOn": [],
     "tags": {
         "imagebuilderTemplate": "ubuntu-hpc",
-        "userIdentity": "enabled"
+        "userIdentity": "enabled",
+        "OBI_components": "hpc"
     },
     "identity": {
         "type": "UserAssigned",
