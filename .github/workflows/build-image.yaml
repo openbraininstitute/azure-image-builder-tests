@@ -236,6 +236,10 @@ jobs:
                   provisioningState=$(az sig image-definition list --gallery-name ${GALLERY_NAME} --resource-group ${RESOURCE_GROUP_NAME} | jq -r ".[] | select(.name == \"${IMAGE_NAME}\") | .provisioningState")
               done
           fi
+      - name: Add tag to image
+        run: |-
+          set -x
+          az image update --tags OBI_components=hpc --image-name ${IMAGE_NAME} --resource-group ${RESOURCE_GROUP_NAME}
       - name: create image version
         run: |-
           set -x
