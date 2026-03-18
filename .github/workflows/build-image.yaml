@@ -82,7 +82,7 @@ jobs:
               echo "Identity ${IDENTITY_NAME} already exists - skipping create"
           else
               echo "Create managed identity"
-              az identity create -g ${RESOURCE_GROUP_NAME} -n ${IDENTITY_NAME}
+              az identity create -g ${RESOURCE_GROUP_NAME} -n ${IDENTITY_NAME} --tags OBI_components=common
           fi
       - name: create and assign role definition
         run: |-
@@ -136,16 +136,20 @@ jobs:
             sed -i -e "s%<imageName>%${IMAGE_NAME}%g" image_template.json
             sed -i -e "s%<runOutputName>%${RUN_OUTPUT_NAME}%g" image_template.json
             sed -i -e "s%<imgBuilderId>%${TEMPLATE_IMAGE_BUILDER_ID}%g" image_template.json
-            az resource create --resource-group ${RESOURCE_GROUP_NAME} --properties '@image_template.json' --is-full-object --resource-type Microsoft.VirtualMachineImages/imageTemplates --name ${IMAGE_NAME}
+            OUTPUT=$(az resource create --resource-group ${RESOURCE_GROUP_NAME} --properties '@image_template.json' --is-full-object --resource-type Microsoft.VirtualMachineImages/imageTemplates --name ${IMAGE_NAME})
+            STAGING_RG_NAME=$(echo ${OUTPUT} | jq -r .properties.exactStagingResourceGroup | awk -F'/' '{print $NF}')
+            echo STAGING_RG_NAME=${STAGING_RG_NAME} >> $GITHUB_ENV
+            echo "Staging resource group is ${STAGING_RG_NAME}"
           fi
       - name: build image from template
         run: |-
           set -x
+          echo "Staging resource group is ${{ env.STAGING_RG_NAME }}"
           if [[ ${{ inputs.build_image_from_template }} == true ]]
           then
             echo "Building image from template"
             # waiting is broken and unlikely to be fixed any time soon: https://github.com/Azure/login/issues/372
-            az image builder run --name ${IMAGE_NAME} --subscription ${SUBSCRIPTION_ID} --resource-group ${RESOURCE_GROUP_NAME} || true
+            az image builder run --name ${IMAGE_NAME} --subscription ${SUBSCRIPTION_ID} --resource-group ${RESOURCE_GROUP_NAME} --no-wait || true
           fi
       - name: configure Azure credentials - again
         uses: azure/login@v1
@@ -212,7 +216,7 @@ jobs:
               echo "Image gallery ${GALLERY_NAME} already exists - skipping creation"
           else
               echo "Creating image gallery ${GALLERY_NAME}"
-              az sig create  --gallery-name ${GALLERY_NAME} --resource-group  ${RESOURCE_GROUP_NAME} --location ${LOCATION}
+              az sig create  --gallery-name ${GALLERY_NAME} --resource-group  ${RESOURCE_GROUP_NAME} --location ${LOCATION} --tags OBI_components=common
           fi
       - name: ensure image definition exists
         run: |-
@@ -223,7 +227,7 @@ jobs:
               echo "Image definition ${IMAGE_NAME} already exists - skipping creation"
           else
               echo "Creating image definition ${IMAGE_NAME}"
-              az sig image-definition create --gallery-image-definition ${IMAGE_NAME} --gallery-name ${GALLERY_NAME} --offer ${IMAGE_NAME} --os-type Linux --publisher openbraininstitute --resource-group ${RESOURCE_GROUP_NAME} --sku ${IMAGE_VERSION} --architecture x64 --location ${LOCATION}
+              az sig image-definition create --gallery-image-definition ${IMAGE_NAME} --gallery-name ${GALLERY_NAME} --offer ${IMAGE_NAME} --os-type Linux --publisher openbraininstitute --resource-group ${RESOURCE_GROUP_NAME} --sku ${IMAGE_VERSION} --architecture x64 --location ${LOCATION} --tags OBI_components=hpc
               provisioningState=Provisioning
               while [[ "${provisioningState}" != "Succeeded" ]]
               do
@@ -232,7 +236,16 @@ jobs:
                   provisioningState=$(az sig image-definition list --gallery-name ${GALLERY_NAME} --resource-group ${RESOURCE_GROUP_NAME} | jq -r ".[] | select(.name == \"${IMAGE_NAME}\") | .provisioningState")
               done
           fi
+      - name: Add tag to image
+        run: |-
+          set -x
+          az image update --tags OBI_components=hpc --image-name ${IMAGE_NAME} --resource-group ${RESOURCE_GROUP_NAME}
       - name: create image version
         run: |-
           set -x
-          az sig image-version create --gallery-image-definition ${IMAGE_NAME} --gallery-image-version ${IMAGE_VERSION} --gallery-name ${GALLERY_NAME} --resource-group ${RESOURCE_GROUP_NAME} --location ${LOCATION} --managed-image ${IMAGE_NAME} --target-regions southcentralus=1
+          az sig image-version create --gallery-image-definition ${IMAGE_NAME} --gallery-image-version ${IMAGE_VERSION} --gallery-name ${GALLERY_NAME} --resource-group ${RESOURCE_GROUP_NAME} --location ${LOCATION} --managed-image ${IMAGE_NAME} --target-regions southcentralus=1 --tags OBI_components=hpc
+      - name: Cleanup staging resource group
+        run: |-
+          set -x
+          echo "Deleting resource group ${{ env.STAGING_RG_NAME }}"
+          az group delete --name ${{ env.STAGING_RG_NAME }} --yes --no-wait
